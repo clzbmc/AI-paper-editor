@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PaperCraft AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20260622-compile-ui">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">P</span><span>PaperCraft</span><b>AI</b></div>
+    <div class="document-title"><span class="status-dot"></span><input id="document-title" value="untitled-paper.tex" aria-label="文档名称"></div>
+    <div class="top-actions">
+      <span id="save-state">已保存</span>
+      <input id="file-input" type="file" accept=".tex,.latex,.txt,.zip" hidden>
+      <input id="folder-input" type="file" webkitdirectory multiple hidden>
+      <button class="file-button" id="open-file">打开文件/ZIP</button>
+      <button class="file-button" id="open-folder">打开项目</button>
+      <button class="file-button" id="export-project">导出 ZIP</button>
+      <button class="icon-button" id="undo" title="撤销">↶</button>
+      <button class="icon-button" id="redo" title="重做">↷</button>
+      <button class="primary small" id="polish-top">润色选区 <span>⌘↵</span></button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="editor-pane" id="editor-pane">
+      <div class="pane-heading">
+        <div><span class="eyebrow">SOURCE</span><h1>LaTeX 编辑器</h1></div>
+        <div class="heading-tools"><div class="selection-meta"><span id="selection-count">未选择文本</span><span id="cursor-position">Ln 1, Col 1</span></div><button id="find-toggle">查找替换</button><div class="compile-tools"><label class="auto-compile"><input id="auto-compile" type="checkbox"> 保存后自动编译</label><button class="compile-button" id="compile-project">编译 PDF</button></div></div>
+      </div>
+      <div class="find-bar" id="find-bar" hidden>
+        <input id="find-text" placeholder="查找" aria-label="查找文本">
+        <input id="replace-text" placeholder="替换为" aria-label="替换文本">
+        <span id="find-status">0 / 0</span>
+        <button id="find-prev" title="上一处">↑</button><button id="find-next" title="下一处">↓</button>
+        <button id="replace-one">替换</button><button id="replace-all">全部替换</button><button id="find-close" title="关闭">×</button>
+      </div>
+      <div class="editor-body">
+        <nav class="project-tree" id="project-tree">
+          <div class="tree-title"><span>PROJECT</span><b id="project-name">未命名项目</b></div>
+          <div id="tree-files"><button class="tree-file active" data-path="untitled-paper.tex"><span>Τ</span>untitled-paper.tex</button></div>
+        </nav>
+        <div class="tree-resizer" id="tree-resizer" title="拖动调整文件树宽度"></div>
+        <div class="editor-shell">
+          <pre class="line-numbers" id="line-numbers" aria-hidden="true">1</pre>
+          <textarea id="editor" wrap="soft" spellcheck="false" aria-label="LaTeX 编辑器">\section{Introduction}
+
+Computational fluid dynamics (CFD) has become a very important tool for studying complex flow phenomena. However, in order to obtain reliable results, the numerical methods must be carefully validated.
+
+In this work, we show that the proposed LES framework improves predictive accuracy by 18\% while preserving computational efficiency. The governing equation is
+\begin{equation}
+    \frac{\partial \rho}{\partial t} + \nabla \cdot (\rho \mathbf{u}) = 0.
+\end{equation}
+
+These results provide a lot of useful information for future engineering applications \cite{smith2024}.</textarea>
+          <div class="file-preview" id="file-preview" hidden></div>
+          <div class="line-measure" id="line-measure" aria-hidden="true"></div>
+        </div>
+      </div>
+      <footer class="editor-footer"><span>LaTeX</span><span>UTF-8</span><span>⌘/Ctrl 点击跳转</span><span id="word-count">0 words</span></footer>
+    </section>
+
+    <div class="column-resizer" id="editor-resizer" title="拖动调整编辑区宽度"></div>
+
+    <aside class="control-pane" id="control-pane">
+      <div class="pane-heading compact"><div><span class="eyebrow">ASSIST</span><h2>AI 润色</h2></div></div>
+      <div class="control-content">
+        <div class="field-group compact-field">
+          <label for="mode-select">写作目标</label>
+          <select id="mode-select" class="mode-select" aria-label="写作目标">
+            <option value="all">全部版本：保守、学术与精简</option>
+            <option value="safe">保守修订：修正问题，保留原表达</option>
+            <option value="academic">学术强化：更严谨、正式的语言</option>
+            <option value="concise">精简表达：减少冗余，保留含义</option>
+          </select>
+        </div>
+        <button class="primary rewrite" id="rewrite">✦ 开始润色</button>
+        <p class="shortcut">快捷键 <kbd>⌘</kbd> + <kbd>Enter</kbd></p>
+        <div class="context-info"><b>上下文已启用</b><p>自动读取选区前后各 3 个段落，避免语义偏移。</p></div>
+        <div class="prompt-editor">
+          <div class="prompt-heading"><label for="writing-prompt">写作提示词</label><button id="reset-prompt" type="button">恢复默认</button></div>
+          <textarea id="writing-prompt" rows="5" maxlength="4000" aria-label="写作提示词"></textarea>
+          <div class="prompt-meta"><span>当前目标：<b id="prompt-mode-label">全部版本</b></span><span id="prompt-count">0 / 4000</span></div>
+        </div>
+        <div class="feedback-card">
+          <div class="feedback-heading"><div><b>写作反馈</b><small>只提示问题，不自动改文</small></div><button id="feedback-analyze" type="button">分析当前文件</button></div>
+          <div class="feedback-list" id="feedback-list"><p>点击分析后，将显示 3-5 条非侵入式写作建议。</p></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="column-resizer" id="control-resizer" title="拖动调整控制区宽度"></div>
+
+    <section class="result-pane" id="result-pane">
+      <div class="pane-heading">
+        <div><span class="eyebrow">SUGGESTIONS</span><h2>润色结果</h2></div>
+        <div class="result-heading-actions"><div class="result-tabs"><button class="active" data-result-view="ai">AI</button><button data-result-view="pdf">PDF</button><button data-result-view="chat">对话</button></div><span class="result-status" id="result-status">等待选区</span></div>
+      </div>
+      <div class="results" id="results">
+        <div class="empty-state"><div class="empty-glyph">Aa<span>✦</span></div><h3>让论文表达更准确</h3><p>选中左侧的一段 LaTeX 文本，AI 将提供三个可直接替换的学术润色版本。</p><div class="steps"><span><b>1</b>选中文本</span><i></i><span><b>2</b>AI 润色</span><i></i><span><b>3</b>一键替换</span></div></div>
+      </div>
+      <div class="pdf-live-preview" id="pdf-live-preview" hidden><div class="pdf-toolbar"><button id="pdf-download" type="button" disabled>下载 PDF</button><button id="pdf-fullscreen" type="button" disabled>全屏浏览</button></div><iframe id="compiled-pdf" title="编译后的 PDF" hidden></iframe><div class="pdf-placeholder" id="pdf-placeholder">尚未生成 PDF。请先安装本地 LaTeX 工具链，再点击“编译 PDF”。</div></div>
+      <div class="project-chat" id="project-chat" hidden>
+        <div class="chat-context" id="chat-context">项目上下文待收集</div>
+        <div class="chat-messages" id="chat-messages"><div class="chat-empty">在这里询问整篇论文、要求生成修改计划，或让 AI 给出需确认后应用的跨文件建议。</div></div>
+        <div class="chat-changes" id="chat-changes" hidden></div>
+        <div class="chat-compose"><textarea id="chat-input" rows="3" placeholder="询问整个项目，或要求生成需确认的修改建议"></textarea><button id="chat-send">发送</button></div>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+  <div class="compile-panel" id="compile-panel" hidden><div class="compile-dialog"><div class="compile-head"><b>LaTeX 编译</b><button id="compile-close">×</button></div><div id="compile-summary"></div><div class="compile-errors" id="compile-errors"></div></div></div>
+  <script src="app.js?v=20260623-rtx-text"></script>
+</body>
+</html>
