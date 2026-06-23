@@ -1,5 +1,6 @@
 import { captureSelection, openProjectFile } from './editor.js';
 import { escapeRegExp, els, normalizeProjectPath, showToast, state } from './state.js';
+import { uiText } from './ui_language.js';
 
 export function resolveProjectFile(target, extensions = ['']) {
   const directory = state.currentPath.includes('/') ? state.currentPath.slice(0, state.currentPath.lastIndexOf('/') + 1) : '';
@@ -40,20 +41,20 @@ export function navigateLatexReference() {
       for (const key of argument.split(',').map(item => item.trim())) {
         const pattern = new RegExp(`@[a-zA-Z]+\\s*\\{\\s*${escapeRegExp(key)}\\s*,`, 'i');
         for (const [path, file] of state.projectFiles) {
-          if (/\.bib$/i.test(path) && file.kind === 'text' && revealTextDefinition(path, pattern, `已定位文献 ${key}`)) return;
+          if (/\.bib$/i.test(path) && file.kind === 'text' && revealTextDefinition(path, pattern, uiText('toast.locatedCitation', { key }))) return;
         }
       }
     } else if (/^(ref|eqref|autoref|pageref)$/.test(type)) {
       const pattern = new RegExp(`\\\\label\\s*\\{\\s*${escapeRegExp(argument)}\\s*\\}`);
       for (const [path, file] of state.projectFiles) {
-        if (file.kind === 'text' && revealTextDefinition(path, pattern, `已定位标签 ${argument}`)) return;
+        if (file.kind === 'text' && revealTextDefinition(path, pattern, uiText('toast.locatedLabel', { label: argument }))) return;
       }
     } else {
       const extensions = type === 'includegraphics' ? ['', '.pdf', '.png', '.jpg', '.jpeg', '.svg', '.webp'] : ['', '.tex'];
       const path = resolveProjectFile(argument, extensions);
-      if (path) { openProjectFile(path); showToast(`已打开 ${path}`); return; }
+      if (path) { openProjectFile(path); showToast(uiText('toast.openedPath', { path })); return; }
     }
-    showToast(`未找到 ${argument} 的定义或文件`);
+    showToast(uiText('toast.notFoundDefinition', { target: argument }));
     return;
   }
 }
@@ -67,7 +68,7 @@ export function resolveDiagnosticPath(path) {
 export function revealSourceLine(path, line) {
   const resolved = resolveDiagnosticPath(path);
   const file = state.projectFiles.get(resolved);
-  if (!file || file.kind !== 'text') { showToast(`找不到源码 ${path}`); return; }
+  if (!file || file.kind !== 'text') { showToast(uiText('toast.sourceNotFound', { path })); return; }
   openProjectFile(resolved);
   requestAnimationFrame(() => {
     const lines = els.editor.value.split('\n');

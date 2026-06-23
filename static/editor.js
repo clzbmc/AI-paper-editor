@@ -1,6 +1,7 @@
 import { cacheProject } from './db.js';
 import { openProjectFile as openProjectFileFromFiles, serializeProjectFiles, writeToSource } from './files.js';
 import { els, showToast, state } from './state.js';
+import { uiText } from './ui_language.js';
 
 export function refreshLineNumbers(force = false) {
   const computed = getComputedStyle(els.editor);
@@ -36,18 +37,18 @@ export function scheduleLineNumbers(force = false) {
 export async function autoSave(path = state.currentPath) {
   saveCurrentFile();
   const file = state.projectFiles.get(path);
-  document.querySelector('#save-state').textContent = '保存中…';
+  document.querySelector('#save-state').textContent = uiText('app.saveSaving');
   try {
     const [, wroteSource] = await Promise.all([cacheProject(serializeProjectFiles), writeToSource(file)]);
-    document.querySelector('#save-state').textContent = wroteSource === 'server' ? '已保存到项目文件夹' : wroteSource ? '已保存到原文件' : '已自动保存';
+    document.querySelector('#save-state').textContent = wroteSource === 'server' ? uiText('app.saveServer') : wroteSource ? uiText('app.saveSource') : uiText('app.saveAuto');
   } catch (error) {
-    document.querySelector('#save-state').textContent = '保存失败';
-    showToast(`自动保存失败：${error.message}`);
+    document.querySelector('#save-state').textContent = uiText('app.saveFailed');
+    showToast(uiText('toast.autoSaveFailed', { message: error.message }));
   }
 }
 
 export function scheduleAutoSave() {
-  document.querySelector('#save-state').textContent = '编辑中';
+  document.querySelector('#save-state').textContent = uiText('app.editing');
   clearTimeout(state.saveTimer);
   const path = state.currentPath;
   state.saveTimer = setTimeout(() => autoSave(path), 600);
@@ -57,7 +58,7 @@ export function scheduleViewSave() {
   saveCurrentFile();
   clearTimeout(state.viewSaveTimer);
   state.viewSaveTimer = setTimeout(() => {
-    cacheProject(serializeProjectFiles).catch(error => showToast(`视图状态保存失败：${error.message}`));
+    cacheProject(serializeProjectFiles).catch(error => showToast(uiText('toast.viewSaveFailed', { message: error.message })));
   }, 350);
 }
 
@@ -112,7 +113,7 @@ export function replaceAllMatches() {
     els.editor.setRangeText(replacement, match.start, match.end, 'preserve');
   }
   els.editor.dispatchEvent(new Event('input', { bubbles: true }));
-  updateFindMatches(true); showToast(`已替换 ${count} 处`);
+  updateFindMatches(true); showToast(uiText('toast.replacedCount', { count }));
 }
 
 export function updateEditorMeta() {
@@ -124,8 +125,8 @@ export function updateEditorMeta() {
 
 export function clearLockedSelection() {
   state.selectedRange = null;
-  els.selectionCount.textContent = '未选择文本';
-  els.resultStatus.textContent = '等待选区';
+  els.selectionCount.textContent = uiText('editor.notSelected');
+  els.resultStatus.textContent = uiText('result.waiting');
 }
 
 export function captureSelection() {
@@ -140,8 +141,8 @@ export function captureSelection() {
     end: els.editor.selectionEnd,
     text: els.editor.value.slice(els.editor.selectionStart, els.editor.selectionEnd),
   };
-  els.selectionCount.textContent = `已选择 ${state.selectedRange.text.length} 字符`;
-  els.resultStatus.textContent = '选区已就绪';
+  els.selectionCount.textContent = uiText('editor.selectedChars', { count: state.selectedRange.text.length });
+  els.resultStatus.textContent = uiText('editor.selectionReady');
 }
 
 export function getContext() {

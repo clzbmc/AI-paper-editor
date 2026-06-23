@@ -34,6 +34,7 @@ export const els = {
   chatSend: document.querySelector('#chat-send'),
   pdfDownloadButton: document.querySelector('#pdf-download'),
   pdfFullscreenButton: document.querySelector('#pdf-fullscreen'),
+  languageToggle: document.querySelector('#language-toggle'),
 };
 
 export const DEFAULT_PROMPTS = {
@@ -43,14 +44,13 @@ export const DEFAULT_PROMPTS = {
   concise: '请精简表达。删除重复、空泛和不必要的措辞，缩短句子并提高信息密度，同时完整保留技术含义、限定条件和论证逻辑。',
 };
 
-export const MODE_LABELS = { all: '全部版本', safe: '保守修订', academic: '强化学术表达', concise: '精简表达' };
-
 export const state = {
   selectedRange: null,
   activeMode: 'all',
   currentPath: 'untitled-paper.tex',
   projectFiles: new Map(),
   projectName: '未命名项目',
+  uiLanguage: localStorage.getItem('papercraft-ui-language') === 'en' ? 'en' : 'zh',
   saveTimer: null,
   viewSaveTimer: null,
   lineNumberTimer: null,

@@ -4,6 +4,7 @@ import { revealSourceLine } from './latex_nav.js';
 import { compiledPdfFile, flushPendingPdfPreview, loadPdfPreview, queuePdfPreview, resolvePdfPreviewUrl, updatePdfActions } from './pdf_preview.js';
 import { base64Blob, els, showToast, state } from './state.js';
 import { saveCurrentFile } from './editor.js';
+import { uiText } from './ui_language.js';
 
 export function findMainTexPath() {
   const paths = [...state.projectFiles.keys()];
@@ -15,7 +16,7 @@ export function showCompileResult(data, ok) {
   const summary = document.querySelector('#compile-summary');
   const errors = document.querySelector('#compile-errors');
   panel.hidden = false;
-  summary.textContent = ok ? `编译成功 · ${data.engine} · ${data.diagnostics?.length || 0} 条诊断` : data.error || '编译失败';
+  summary.textContent = ok ? uiText('compile.successSummary', { engine: data.engine, count: data.diagnostics?.length || 0 }) : data.error || uiText('compile.failed');
   errors.replaceChildren();
   (data.diagnostics || []).forEach(diagnostic => {
     const button = document.createElement('button');
@@ -43,10 +44,10 @@ export async function compileProject({ background = false } = {}) {
   if (state.compileRunning) return;
   saveCurrentFile();
   const main = findMainTexPath();
-  if (!main) { showToast('项目中没有可编译的 TeX 主文件'); return; }
+  if (!main) { showToast(uiText('toast.noCompileMain')); return; }
   state.compileRunning = true;
   const button = document.querySelector('#compile-project');
-  button.disabled = true; button.textContent = '编译中…';
+  button.disabled = true; button.textContent = uiText('editor.compiling');
   try {
     const files = await collectProjectFiles(false);
     const response = await fetch('/api/compile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ main, files }) });
@@ -55,7 +56,7 @@ export async function compileProject({ background = false } = {}) {
     try {
       data = JSON.parse(responseText);
     } catch {
-      data = { error: response.status === 404 ? '当前运行的服务尚未加载编译接口，请关闭启动器后重新打开。' : `编译服务返回了无法识别的响应（HTTP ${response.status}）。` };
+      data = { error: response.status === 404 ? uiText('toast.compileInterfaceMissing') : uiText('toast.compileBadResponse', { status: response.status }) };
     }
     if (!response.ok) {
       if (data.code === 'toolchain_missing') {
@@ -63,7 +64,7 @@ export async function compileProject({ background = false } = {}) {
         localStorage.setItem('papercraft-auto-compile', 'false');
       }
       showCompileResult(data, false);
-      throw new Error(data.error || '编译失败');
+      throw new Error(data.error || uiText('compile.failed'));
     }
     const blob = compiledPdfFile(data) || base64Blob(data.pdf, 'application/pdf');
     const outputPath = `build/${data.pdf_name}`;
@@ -79,12 +80,12 @@ export async function compileProject({ background = false } = {}) {
     else loadPdfPreview(previewUrl, pdfUrl);
     if (previousUrl && previousUrl !== pdfUrl) URL.revokeObjectURL(previousUrl);
     renderTree(); cacheProject(serializeProjectFiles).catch(() => {});
-    if (!background) showToast('编译成功，PDF 已更新');
-    else showToast('PDF 已自动更新');
+    if (!background) showToast(uiText('toast.compileSuccess'));
+    else showToast(uiText('toast.compileAutoSuccess'));
   } catch (error) {
-    showToast(error.message || '编译失败');
+    showToast(error.message || uiText('compile.failed'));
   } finally {
-    state.compileRunning = false; button.disabled = false; button.textContent = '编译 PDF';
+    state.compileRunning = false; button.disabled = false; button.textContent = uiText('editor.compilePdf');
   }
 }
 

@@ -1,4 +1,5 @@
 import { base64Blob, cacheBustedUrl, els, showToast, state } from './state.js';
+import { uiText } from './ui_language.js';
 
 export async function resolvePdfPreviewUrl(serverUrl, fallbackUrl) {
   if (!serverUrl) return fallbackUrl;
@@ -18,7 +19,7 @@ export function armPdfFallback(iframe, fallbackUrl) {
     const fallback = iframe.dataset.fallbackSrc;
     if (fallback && iframe.src !== fallback) {
       iframe.src = fallback;
-      showToast('PDF 预览地址失效，已切换到本地缓存');
+      showToast(uiText('toast.pdfFallback'));
     }
   };
 }
@@ -29,8 +30,8 @@ export function showPdfPreviewError() {
   iframe.hidden = true;
   iframe.removeAttribute('src');
   document.querySelector('#pdf-live-preview').classList.remove('ready');
-  placeholder.textContent = 'PDF 已生成，但浏览器预览加载失败。请重新点击 PDF 标签或再次编译。';
-  showToast('PDF 已生成，但预览加载失败');
+  placeholder.textContent = uiText('pdf.previewFailed');
+  showToast(uiText('toast.pdfPreviewFailed'));
 }
 
 export function updatePdfActions() {
@@ -81,12 +82,12 @@ export function resetPdfPreview() {
   delete iframe.dataset.pendingFallback;
   state.currentPdf = null;
   updatePdfActions();
-  placeholder.textContent = '尚未生成 PDF。请先安装本地 LaTeX 工具链，再点击“编译 PDF”。';
+  placeholder.textContent = uiText('pdf.placeholder');
   document.querySelector('#pdf-live-preview').classList.remove('ready');
 }
 
 export function downloadCurrentPdf() {
-  if (!state.currentPdf?.url) { showToast('请先编译生成 PDF'); return; }
+  if (!state.currentPdf?.url) { showToast(uiText('toast.compilePdfFirst')); return; }
   const link = document.createElement('a');
   link.href = state.currentPdf.downloadUrl || state.currentPdf.url;
   link.download = state.currentPdf.name || 'papercraft.pdf';
@@ -99,10 +100,10 @@ export function pdfZoomUrl(url, zoom = 200) {
 }
 
 export async function openCurrentPdfFullscreen() {
-  if (!state.currentPdf?.url) { showToast('请先编译生成 PDF'); return; }
+  if (!state.currentPdf?.url) { showToast(uiText('toast.compilePdfFirst')); return; }
   const zoomedUrl = pdfZoomUrl(state.currentPdf.url, 250);
   window.open(zoomedUrl, '_blank', 'noopener');
-  showToast('已打开独立 PDF 预览器 · 250%');
+  showToast(uiText('toast.pdfFullscreenOpened'));
 }
 
 export function compiledPdfFile(data) {
