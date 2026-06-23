@@ -38,6 +38,7 @@ Open `http://localhost:8000`. If no model key is configured, rewrite, feedback, 
 - 旧版 `.doc` 暂不支持，请另存为 `.docx` 或文本格式后再打开。
 - Legacy `.doc` files are not supported. Save them as `.docx` or text before opening.
 - 点击“打开项目”可以选择完整论文文件夹，并在授权后自动写回原文本文件。
+
 - Click “Open Project” to select a full paper folder. With directory permission, text edits are written back to the original files.
 - ZIP 项目请点击“从 ZIP 创建项目”。应用会在 `projects/` 下创建 ZIP 同名可见项目文件夹；重名时自动创建 `-2`、`-3` 等编号目录，不覆盖已有项目。
 - For ZIP projects, click “Create Project from ZIP”. The app creates a visible project folder under `projects/` with the ZIP name. Existing folders are not overwritten; `-2`, `-3`, and later suffixes are used when needed.
@@ -57,6 +58,7 @@ Project data stays on your machine, inside the browser and the local Python serv
 - `main.tex` 会被优先识别为主文件。
 - `main.tex` is preferred as the main file.
 - 文件树、编辑区、AI 控制区和结果区均可拖拽调整宽度；布局会自动保存。
+
 - The file tree, editor, AI control pane, and result pane are resizable; layout is saved automatically.
 - LaTeX 长行按编辑区宽度软换行，不修改源文件真实换行。
 - Long LaTeX lines soft-wrap to the editor width without changing source line breaks.
@@ -74,6 +76,7 @@ Project data stays on your machine, inside the browser and the local Python serv
 - AI 润色结果显示修改理由和逐词 Diff，绿色表示新增，红色表示删除。
 - AI rewrite cards show reasons and word-level diff. Green means added text; red means removed text.
 - “写作反馈”卡片会生成 3-5 条非侵入式建议，只提示表达、逻辑、过渡、结构或证据问题，不自动修改源码。
+
 - The “Writing Feedback” card generates 3-5 non-invasive suggestions about expression, logic, transitions, structure, or evidence. It never edits source automatically.
 - 右侧“对话”标签支持围绕整个项目提问。项目级对话会尽量携带文本上下文，二进制资源只作为清单提供。
 - The “Chat” tab supports project-level questions. The request includes as much text context as possible; binary files are sent only as a resource manifest.
