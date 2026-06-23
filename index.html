@@ -15,9 +15,11 @@
     <div class="document-title"><span class="status-dot"></span><input id="document-title" value="untitled-paper.tex" aria-label="文档名称"></div>
     <div class="top-actions">
       <span id="save-state">已保存</span>
-      <input id="file-input" type="file" accept=".tex,.latex,.txt,.zip" hidden>
+      <input id="file-input" type="file" accept=".tex,.latex,.bib,.sty,.cls,.bst,.rtx,.txt,.text,.md,.docx,.doc" hidden>
+      <input id="zip-project-input" type="file" accept=".zip" hidden>
       <input id="folder-input" type="file" webkitdirectory multiple hidden>
-      <button class="file-button" id="open-file">打开文件/ZIP</button>
+      <button class="file-button" id="open-file">打开文件</button>
+      <button class="file-button" id="create-project-from-zip">从 ZIP 创建项目</button>
       <button class="file-button" id="open-folder">打开项目</button>
       <button class="file-button" id="export-project">导出 ZIP</button>
       <button class="icon-button" id="undo" title="撤销">↶</button>
@@ -114,6 +116,6 @@ These results provide a lot of useful information for future engineering applica
   </main>
   <div class="toast" id="toast"></div>
   <div class="compile-panel" id="compile-panel" hidden><div class="compile-dialog"><div class="compile-head"><b>LaTeX 编译</b><button id="compile-close">×</button></div><div id="compile-summary"></div><div class="compile-errors" id="compile-errors"></div></div></div>
-  <script src="app.js?v=20260623-rtx-text"></script>
+  <script type="module" src="static/app.js?v=20260623-frontend-modules"></script>
 </body>
 </html>
