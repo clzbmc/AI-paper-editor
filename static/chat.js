@@ -1,6 +1,7 @@
 import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js';
 import { findMainTexPath } from './compile.js';
 import { els, showToast, state } from './state.js';
+import { uiText } from './ui_language.js';
 
 export function collectChatContext() {
   saveCurrentFile();
@@ -34,7 +35,11 @@ export function collectChatContext() {
       manifest.push({ path: file.path, kind: file.kind, mime: file.mime || '', size: file.size || file.blob?.size || 0 });
     }
   }
-  els.chatContextEl.textContent = `${textFiles.length} 个文本文件 · ${manifest.length} 个资源 · ${truncated ? '上下文已截断' : '上下文完整'}`;
+  els.chatContextEl.textContent = uiText('chat.contextSummary', {
+    textCount: textFiles.length,
+    resourceCount: manifest.length,
+    status: truncated ? uiText('chat.contextTruncated') : uiText('chat.contextComplete'),
+  });
   return { files: textFiles, resource_manifest: manifest, context_truncated: truncated };
 }
 
@@ -43,7 +48,7 @@ export function appendChatMessage(role, content) {
   const bubble = document.createElement('article');
   bubble.className = `chat-message ${role}`;
   const label = document.createElement('b');
-  label.textContent = role === 'user' ? '你' : 'PaperCraft AI';
+  label.textContent = role === 'user' ? uiText('chat.you') : 'PaperCraft AI';
   const body = document.createElement('p');
   body.textContent = content;
   bubble.append(label, body);
@@ -58,21 +63,21 @@ export function renderChatChanges(changes = []) {
   if (!changes.length) return;
   const title = document.createElement('div');
   title.className = 'chat-changes-title';
-  title.textContent = `建议修改 ${changes.length} 处，确认后才会写入项目`;
+  title.textContent = uiText('chat.changesTitle', { count: changes.length });
   els.chatChangesEl.append(title);
   changes.forEach((change, index) => {
     const card = document.createElement('article');
     card.className = 'chat-change';
     const head = document.createElement('b');
-    head.textContent = change.path || '未知文件';
+    head.textContent = change.path || uiText('chat.unknownFile');
     const reason = document.createElement('p');
-    reason.textContent = change.reason || '无说明';
+    reason.textContent = change.reason || uiText('chat.noReason');
     const find = document.createElement('pre');
     find.textContent = change.find || '';
     const replace = document.createElement('pre');
     replace.textContent = change.replace || '';
     const apply = document.createElement('button');
-    apply.textContent = '应用这处修改';
+    apply.textContent = uiText('chat.applyChange');
     apply.onclick = () => applyChatChange(index);
     card.append(head, reason, find, replace, apply);
     els.chatChangesEl.append(card);
@@ -81,16 +86,16 @@ export function renderChatChanges(changes = []) {
 
 export function applyChatChange(index) {
   const change = state.pendingChatChanges[index];
-  if (!change?.path || !change.find) { showToast('修改建议不完整'); return; }
+  if (!change?.path || !change.find) { showToast(uiText('toast.incompleteChange')); return; }
   const file = state.projectFiles.get(change.path);
-  if (!file || file.kind !== 'text') { showToast('只能应用到文本文件'); return; }
-  if (!file.content.includes(change.find)) { showToast('原文已变化，请重新生成建议'); return; }
+  if (!file || file.kind !== 'text') { showToast(uiText('toast.textFileOnly')); return; }
+  if (!file.content.includes(change.find)) { showToast(uiText('toast.sourceChanged')); return; }
   file.content = file.content.replace(change.find, change.replace || '');
   if (state.currentPath === change.path) els.editor.value = file.content;
   saveCurrentFile();
   scheduleAutoSave();
   updateEditorMeta();
-  showToast('已应用修改并进入自动保存');
+  showToast(uiText('toast.changeApplied'));
 }
 
 export async function sendChatMessage() {
@@ -100,7 +105,7 @@ export async function sendChatMessage() {
   state.chatMessages.push({ role: 'user', content });
   appendChatMessage('user', content);
   els.chatSend.disabled = true;
-  els.chatSend.textContent = '发送中…';
+  els.chatSend.textContent = uiText('chat.sending');
   try {
     const context = collectChatContext();
     const response = await fetch('/api/chat', {
@@ -109,17 +114,17 @@ export async function sendChatMessage() {
       body: JSON.stringify({ messages: state.chatMessages, current_path: state.currentPath, ...context }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '项目对话失败');
-    const reply = data.reply || '已收到。';
+    if (!response.ok) throw new Error(data.error || uiText('toast.chatFailed'));
+    const reply = data.reply || uiText('toast.chatReceived');
     state.chatMessages.push({ role: 'assistant', content: reply });
     appendChatMessage('assistant', reply);
     renderChatChanges(data.changes || []);
-    if (data.demo) showToast('当前为离线演示对话');
+    if (data.demo) showToast(uiText('toast.chatDemo'));
   } catch (error) {
-    appendChatMessage('assistant', `请求失败：${error.message}`);
+    appendChatMessage('assistant', uiText('toast.requestFailed', { message: error.message }));
     showToast(error.message);
   } finally {
     els.chatSend.disabled = false;
-    els.chatSend.textContent = '发送';
+    els.chatSend.textContent = uiText('chat.send');
   }
 }

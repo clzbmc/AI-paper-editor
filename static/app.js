@@ -28,6 +28,7 @@ import { navigateLatexReference } from './latex_nav.js';
 import { applyLayout, setupResizableLayout } from './layout.js';
 import { downloadCurrentPdf, openCurrentPdfFullscreen } from './pdf_preview.js';
 import { els, showToast, state } from './state.js';
+import { applyUiLanguage, toggleUiLanguage, uiText } from './ui_language.js';
 
 function bindEditorEvents() {
   els.editor.addEventListener('pointerdown', () => {
@@ -75,6 +76,15 @@ function bindToolbarEvents() {
   document.querySelector('#create-project-from-zip').onclick = () => els.zipProjectInput.click();
   document.querySelector('#open-folder').onclick = openProjectFolder;
   document.querySelector('#export-project').onclick = exportProject;
+  els.languageToggle.onclick = () => {
+    toggleUiLanguage();
+    showModePrompt();
+    if (!state.selectedRange) {
+      els.selectionCount.textContent = state.projectFiles.get(state.currentPath)?.kind === 'text' ? uiText('editor.notSelected') : uiText('editor.resourcePreview');
+      els.resultStatus.textContent = uiText('result.waiting');
+    }
+    if (!state.currentPdf?.url) document.querySelector('#pdf-placeholder').textContent = uiText('pdf.placeholder');
+  };
   document.querySelector('#compile-project').onclick = () => compileProject();
   document.querySelector('#compile-close').onclick = () => { document.querySelector('#compile-panel').hidden = true; };
   document.querySelector('#auto-compile').checked = localStorage.getItem('papercraft-auto-compile') === 'true';
@@ -100,7 +110,7 @@ function bindFileEvents() {
     const files = event.dataTransfer.files;
     if (files[0]?.name.toLowerCase().endsWith('.zip')) {
       event.preventDefault();
-      showToast('ZIP 项目请使用“从 ZIP 创建项目”');
+      showToast(uiText('toast.zipUseCreateProject'));
       return;
     }
     files.length === 1 ? openSingleFile(files[0]) : openFiles(files);
@@ -118,6 +128,7 @@ function bindGlobalShortcuts() {
 }
 
 function init() {
+  applyUiLanguage();
   bindEditorEvents();
   bindToolbarEvents();
   bindFileEvents();

@@ -2,6 +2,7 @@ import { getCachedProject, cacheProject } from './db.js';
 import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js';
 import { resetPdfPreview } from './pdf_preview.js';
 import { base64Blob, bufferToBase64, els, showToast, state } from './state.js';
+import { uiText } from './ui_language.js';
 
 export async function writeToSource(file) {
   if (!file || file.kind !== 'text') return false;
@@ -21,7 +22,7 @@ export async function writeToSource(file) {
       body: JSON.stringify({ root_id: file.serverRootId, path: file.path, content: file.content }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '项目文件夹写回失败');
+    if (!response.ok) throw new Error(data.error || uiText('toast.writebackFailed'));
     return 'server';
   }
   return false;
@@ -30,9 +31,9 @@ export async function writeToSource(file) {
 export function friendlyFileError(error, path) {
   const message = String(error?.message || error || '');
   if (/object can ?not be found here/i.test(message) || error?.name === 'NotFoundError') {
-    return `资源缓存已失效：${path}。请重新打开一次项目文件夹以重建缓存。`;
+    return uiText('toast.resourceExpired', { path });
   }
-  return `${path} 读取失败：${message || '未知错误'}`;
+  return uiText('toast.fileReadFailed', { path, message: message || uiText('toast.unknownError') });
 }
 
 export function hydrateProjectFile(file) {
@@ -111,10 +112,10 @@ export function openProjectFile(path) {
     } else if (file.kind === 'asset' && file.mime === 'application/pdf') {
       const frame = document.createElement('iframe'); frame.src = file.url; frame.title = path; els.filePreview.append(frame);
     } else {
-      const message = document.createElement('div'); message.className = 'unsupported'; message.textContent = '该文件已纳入项目，但暂不支持预览。'; els.filePreview.append(message);
+      const message = document.createElement('div'); message.className = 'unsupported'; message.textContent = uiText('toast.unsupportedPreview'); els.filePreview.append(message);
     }
   }
-  els.selectionCount.textContent = file.kind === 'text' ? '未选择文本' : '资源预览';
+  els.selectionCount.textContent = file.kind === 'text' ? uiText('editor.notSelected') : uiText('editor.resourcePreview');
   renderTree();
 }
 
@@ -125,22 +126,22 @@ export function loadProject(files, name, preferredPath = '', persist = true) {
   files = files.map(hydrateProjectFile);
   files.forEach(file => { if (file.kind === 'asset' && file.blob) file.url = URL.createObjectURL(file.blob); });
   state.projectFiles = new Map(files.map(file => [file.path, file]));
-  state.projectName = name || '论文项目';
+  state.projectName = name || uiText('toast.paperProject');
   state.chatMessages = [];
   state.pendingChatChanges = [];
-  els.chatMessagesEl.innerHTML = '<div class="chat-empty">在这里询问整篇论文、要求生成修改计划，或让 AI 给出需确认后应用的跨文件建议。</div>';
+  els.chatMessagesEl.innerHTML = `<div class="chat-empty" data-i18n="chat.empty">${uiText('chat.empty')}</div>`;
   els.chatChangesEl.hidden = true;
   els.chatChangesEl.replaceChildren();
-  els.chatContextEl.textContent = '项目上下文待收集';
+  els.chatContextEl.textContent = uiText('chat.contextPending');
   document.querySelector('#project-name').textContent = state.projectName;
   const paths = [...state.projectFiles.keys()];
   const main = (preferredPath && state.projectFiles.has(preferredPath) ? preferredPath : '') || paths.find(path => /(^|\/)main\.tex$/i.test(path)) || paths.find(path => /\.tex$/i.test(path)) || paths.find(path => state.projectFiles.get(path).kind === 'text') || paths[0];
-  if (!main) { showToast('项目中没有可读取的文件'); return; }
+  if (!main) { showToast(uiText('toast.noReadableFiles')); return; }
   state.currentPath = '';
   openProjectFile(main);
   if (persist) {
-    cacheProject(serializeProjectFiles).catch(error => showToast(`项目缓存失败：${error.message}`));
-    showToast(`已载入 ${files.length} 个文件`);
+    cacheProject(serializeProjectFiles).catch(error => showToast(uiText('toast.projectCacheFailed', { message: error.message })));
+    showToast(uiText('toast.loadedFiles', { count: files.length }));
   }
 }
 
@@ -156,7 +157,7 @@ export async function openFiles(fileList) {
     }));
     loadProject(files, rootName);
   } catch (error) {
-    showToast(`读取失败：${error.message}`);
+    showToast(uiText('toast.readFailed', { message: error.message }));
   }
 }
 
@@ -164,11 +165,11 @@ export async function openSingleFile(file) {
   if (!file) return;
   const name = file.name || 'untitled.txt';
   if (/\.zip$/i.test(name)) {
-    showToast('ZIP 项目请使用“从 ZIP 创建项目”');
+    showToast(uiText('toast.zipUseCreateProject'));
     return;
   }
   if (/\.doc$/i.test(name)) {
-    showToast('暂不支持旧版 .doc，请另存为 .docx 或 txt 后再打开。');
+    showToast(uiText('toast.docUnsupported'));
     return;
   }
   try {
@@ -182,13 +183,13 @@ export async function openSingleFile(file) {
         body: file,
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Word 文档读取失败');
+      if (!response.ok) throw new Error(data.error || uiText('toast.wordReadFailed'));
       loadProject([data.file], name);
       return;
     }
     const kind = fileKind(name);
     if (kind !== 'text') {
-      showToast('打开文件仅支持可编辑文本或 .docx 文档');
+      showToast(uiText('toast.singleFileOnly'));
       return;
     }
     loadProject([{
@@ -199,19 +200,19 @@ export async function openSingleFile(file) {
       blob: null,
     }], name);
   } catch (error) {
-    showToast(`读取失败：${error.message}`);
+    showToast(uiText('toast.readFailed', { message: error.message }));
   }
 }
 
 export async function parseZipProject(file) {
   const response = await fetch('/api/project', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'ZIP 读取失败');
+  if (!response.ok) throw new Error(data.error || uiText('toast.zipReadFailed'));
   return data.files.map(parsedProjectFile);
 }
 
 export async function createProjectFromZip(file) {
-  els.resultStatus.textContent = '正在创建项目文件夹';
+  els.resultStatus.textContent = uiText('result.creatingProject');
   try {
     const response = await fetch('/api/create-project-from-zip', {
       method: 'POST',
@@ -219,15 +220,15 @@ export async function createProjectFromZip(file) {
       body: file,
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '从 ZIP 创建项目失败');
+    if (!response.ok) throw new Error(data.error || uiText('toast.createZipFailed'));
     const files = data.files.map(parsedProjectFile);
     loadProject(files, data.name || file.name.replace(/\.zip$/i, ''));
-    document.querySelector('#save-state').textContent = '已保存到项目文件夹';
-    els.resultStatus.textContent = '项目已载入';
-    showToast('已创建项目文件夹 ' + (data.path || data.name));
+    document.querySelector('#save-state').textContent = uiText('app.saveServer');
+    els.resultStatus.textContent = uiText('result.projectLoaded');
+    showToast(uiText('toast.createdProjectFolder', { path: data.path || data.name }));
   } catch (error) {
-    els.resultStatus.textContent = '导入失败';
-    showToast(error.message || '从 ZIP 创建项目失败');
+    els.resultStatus.textContent = uiText('result.importFailed');
+    showToast(error.message || uiText('toast.createZipFailed'));
   }
 }
 
@@ -256,7 +257,7 @@ export async function openProjectFolder() {
     const files = await readDirectory(handle);
     loadProject(files, handle.name);
   } catch (error) {
-    if (error.name !== 'AbortError') showToast(`项目读取失败：${error.message}`);
+    if (error.name !== 'AbortError') showToast(uiText('toast.projectReadFailed', { message: error.message }));
   }
 }
 
@@ -265,10 +266,10 @@ export async function restoreProject() {
     const project = await getCachedProject();
     if (!project?.files?.length) return;
     loadProject(project.files, project.name, project.currentPath, false);
-    document.querySelector('#save-state').textContent = '已恢复上次项目';
-    showToast(`已恢复 ${project.name}`);
+    document.querySelector('#save-state').textContent = uiText('toast.restoredLastProject');
+    showToast(uiText('toast.restoredProject', { name: project.name }));
   } catch (error) {
-    showToast(`恢复项目失败：${error.message}`);
+    showToast(uiText('toast.restoreFailed', { message: error.message }));
   }
 }
 
@@ -323,13 +324,13 @@ export async function collectProjectFiles(includeGenerated = true) {
           file.blob = base64Blob(file.content, file.mime || 'application/octet-stream');
           file.url = URL.createObjectURL(file.blob);
         }
-        if (!file.blob) throw new Error('本地缓存中没有可用资源内容');
+        if (!file.blob) throw new Error(uiText('toast.noCachedAsset'));
         files.push({ path: file.path, content: bufferToBase64(await file.blob.arrayBuffer()), encoding: 'base64' });
       } catch (error) {
         throw new Error(friendlyFileError(error, file.path));
       }
     }
-    else throw new Error(`文件内容不可用：${file.path}`);
+    else throw new Error(uiText('toast.fileContentUnavailable', { path: file.path }));
   }
   return files;
 }
@@ -338,13 +339,13 @@ export async function exportProject() {
   saveCurrentFile();
   const button = document.querySelector('#export-project');
   button.disabled = true;
-  button.textContent = '正在导出…';
+  button.textContent = uiText('toolbar.exporting');
   try {
     const files = await collectProjectFiles();
     const response = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files }) });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || '导出失败');
+      throw new Error(error.error || uiText('toast.exportFailed'));
     }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -353,12 +354,12 @@ export async function exportProject() {
     link.download = `${state.projectName.replace(/[^\p{L}\p{N}_.-]+/gu, '_') || 'paper-project'}.zip`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(`已导出 ${files.length} 个文件`);
+    showToast(uiText('toast.exportedFiles', { count: files.length }));
   } catch (error) {
-    showToast(error.message || '导出失败');
+    showToast(error.message || uiText('toast.exportFailed'));
   } finally {
     button.disabled = false;
-    button.textContent = '导出 ZIP';
+    button.textContent = uiText('toolbar.exportZip');
   }
 }
 
