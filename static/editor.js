@@ -1,0 +1,169 @@
+import { cacheProject } from './db.js';
+import { openProjectFile as openProjectFileFromFiles, serializeProjectFiles, writeToSource } from './files.js';
+import { els, showToast, state } from './state.js';
+
+export function refreshLineNumbers(force = false) {
+  const computed = getComputedStyle(els.editor);
+  const contentWidth = Math.max(40, els.editor.clientWidth - parseFloat(computed.paddingLeft) - parseFloat(computed.paddingRight));
+  if (!force && state.lastMeasuredValue === els.editor.value && Math.abs(state.lastMeasuredWidth - contentWidth) < 1) return;
+  state.lastMeasuredValue = els.editor.value;
+  state.lastMeasuredWidth = contentWidth;
+  els.lineMeasure.style.width = `${contentWidth}px`;
+  const lines = els.editor.value.split('\n');
+  const measureFragment = document.createDocumentFragment();
+  lines.forEach(line => {
+    const row = document.createElement('div');
+    row.textContent = line || '\u200b';
+    measureFragment.append(row);
+  });
+  els.lineMeasure.replaceChildren(measureFragment);
+  const numberFragment = document.createDocumentFragment();
+  [...els.lineMeasure.children].forEach((row, index) => {
+    const number = document.createElement('span');
+    number.textContent = index + 1;
+    number.style.height = `${row.getBoundingClientRect().height}px`;
+    numberFragment.append(number);
+  });
+  els.lineNumbers.replaceChildren(numberFragment);
+  els.lineNumbers.scrollTop = els.editor.scrollTop;
+}
+
+export function scheduleLineNumbers(force = false) {
+  clearTimeout(state.lineNumberTimer);
+  state.lineNumberTimer = setTimeout(() => refreshLineNumbers(force), 90);
+}
+
+export async function autoSave(path = state.currentPath) {
+  saveCurrentFile();
+  const file = state.projectFiles.get(path);
+  document.querySelector('#save-state').textContent = '保存中…';
+  try {
+    const [, wroteSource] = await Promise.all([cacheProject(serializeProjectFiles), writeToSource(file)]);
+    document.querySelector('#save-state').textContent = wroteSource === 'server' ? '已保存到项目文件夹' : wroteSource ? '已保存到原文件' : '已自动保存';
+  } catch (error) {
+    document.querySelector('#save-state').textContent = '保存失败';
+    showToast(`自动保存失败：${error.message}`);
+  }
+}
+
+export function scheduleAutoSave() {
+  document.querySelector('#save-state').textContent = '编辑中';
+  clearTimeout(state.saveTimer);
+  const path = state.currentPath;
+  state.saveTimer = setTimeout(() => autoSave(path), 600);
+}
+
+export function scheduleViewSave() {
+  saveCurrentFile();
+  clearTimeout(state.viewSaveTimer);
+  state.viewSaveTimer = setTimeout(() => {
+    cacheProject(serializeProjectFiles).catch(error => showToast(`视图状态保存失败：${error.message}`));
+  }, 350);
+}
+
+export function updateFindMatches(reset = false) {
+  const query = document.querySelector('#find-text').value;
+  state.findMatches = [];
+  if (query) {
+    const source = els.editor.value.toLocaleLowerCase();
+    const needle = query.toLocaleLowerCase();
+    let position = 0;
+    while ((position = source.indexOf(needle, position)) !== -1) {
+      state.findMatches.push({ start: position, end: position + query.length });
+      position += Math.max(1, query.length);
+    }
+  }
+  if (reset) state.findIndex = state.findMatches.length ? 0 : -1;
+  else if (state.findIndex >= state.findMatches.length) state.findIndex = state.findMatches.length - 1;
+  document.querySelector('#find-status').textContent = `${state.findIndex < 0 ? 0 : state.findIndex + 1} / ${state.findMatches.length}`;
+}
+
+export function revealFindMatch(index) {
+  if (!state.findMatches.length) return;
+  state.findIndex = (index + state.findMatches.length) % state.findMatches.length;
+  const match = state.findMatches[state.findIndex];
+  els.editor.focus({ preventScroll: true });
+  els.editor.setSelectionRange(match.start, match.end);
+  const line = els.editor.value.slice(0, match.start).split('\n').length - 1;
+  els.editor.scrollTop = Math.max(0, line * (parseFloat(getComputedStyle(els.editor).lineHeight) || 22) - els.editor.clientHeight / 3);
+  document.querySelector('#find-status').textContent = `${state.findIndex + 1} / ${state.findMatches.length}`;
+}
+
+export function showFindBar() {
+  document.querySelector('#find-bar').hidden = false;
+  const input = document.querySelector('#find-text');
+  input.focus(); input.select(); updateFindMatches(true);
+}
+
+export function replaceFindMatch() {
+  if (state.findIndex < 0 || !state.findMatches[state.findIndex]) return;
+  const match = state.findMatches[state.findIndex];
+  els.editor.setRangeText(document.querySelector('#replace-text').value, match.start, match.end, 'select');
+  els.editor.dispatchEvent(new Event('input', { bubbles: true }));
+  updateFindMatches(true); revealFindMatch(0);
+}
+
+export function replaceAllMatches() {
+  if (!state.findMatches.length) return;
+  const replacement = document.querySelector('#replace-text').value;
+  const count = state.findMatches.length;
+  for (let index = state.findMatches.length - 1; index >= 0; index--) {
+    const match = state.findMatches[index];
+    els.editor.setRangeText(replacement, match.start, match.end, 'preserve');
+  }
+  els.editor.dispatchEvent(new Event('input', { bubbles: true }));
+  updateFindMatches(true); showToast(`已替换 ${count} 处`);
+}
+
+export function updateEditorMeta() {
+  scheduleLineNumbers();
+  const beforeCursor = els.editor.value.slice(0, els.editor.selectionStart).split('\n');
+  els.cursorPosition.textContent = `Ln ${beforeCursor.length}, Col ${beforeCursor.at(-1).length + 1}`;
+  els.wordCount.textContent = `${(els.editor.value.match(/[\p{L}\p{N}_-]+/gu) || []).length} words`;
+}
+
+export function clearLockedSelection() {
+  state.selectedRange = null;
+  els.selectionCount.textContent = '未选择文本';
+  els.resultStatus.textContent = '等待选区';
+}
+
+export function captureSelection() {
+  updateEditorMeta();
+  scheduleViewSave();
+  if (els.editor.selectionStart === els.editor.selectionEnd) {
+    clearLockedSelection();
+    return;
+  }
+  state.selectedRange = {
+    start: els.editor.selectionStart,
+    end: els.editor.selectionEnd,
+    text: els.editor.value.slice(els.editor.selectionStart, els.editor.selectionEnd),
+  };
+  els.selectionCount.textContent = `已选择 ${state.selectedRange.text.length} 字符`;
+  els.resultStatus.textContent = '选区已就绪';
+}
+
+export function getContext() {
+  if (!state.selectedRange) return { before: '', after: '' };
+  const before = els.editor.value.slice(0, state.selectedRange.start).split(/\n\s*\n/).slice(-3).join('\n\n');
+  const after = els.editor.value.slice(state.selectedRange.end).split(/\n\s*\n/).slice(0, 3).join('\n\n');
+  return { before, after };
+}
+
+export function saveCurrentFile() {
+  const current = state.projectFiles.get(state.currentPath);
+  if (current?.kind === 'text') {
+    current.content = els.editor.value;
+    current.view = {
+      scrollTop: els.editor.scrollTop,
+      scrollLeft: els.editor.scrollLeft,
+      selectionStart: els.editor.selectionStart,
+      selectionEnd: els.editor.selectionEnd,
+    };
+  }
+}
+
+export function openProjectFile(path) {
+  openProjectFileFromFiles(path);
+}
