@@ -1,8 +1,8 @@
-import { getCachedProject, cacheProject } from './db.js';
-import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js';
-import { resetPdfPreview } from './pdf_preview.js';
-import { base64Blob, bufferToBase64, els, showToast, state } from './state.js';
-import { uiText } from './ui_language.js';
+import { getCachedProject, cacheProject } from './db.js?v=20260625-draft-generator';
+import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js?v=20260625-draft-generator';
+import { resetPdfPreview } from './pdf_preview.js?v=20260625-draft-generator';
+import { base64Blob, bufferToBase64, els, showToast, state } from './state.js?v=20260625-draft-generator';
+import { uiText } from './ui_language.js?v=20260625-draft-generator';
 
 export async function writeToSource(file) {
   if (!file || file.kind !== 'text') return false;

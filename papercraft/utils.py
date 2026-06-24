@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_VERSION = "0.7.7"
+APP_VERSION = "0.7.10"
 TEXT_EXTENSIONS = {".tex", ".latex", ".bib", ".sty", ".cls", ".bst", ".rtx", ".txt", ".text", ".md"}
 ASSET_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
 LATEX_SEARCH_DIRS = [

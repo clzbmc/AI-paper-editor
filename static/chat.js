@@ -1,7 +1,7 @@
-import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js';
-import { findMainTexPath } from './compile.js';
-import { els, showToast, state } from './state.js';
-import { uiText } from './ui_language.js';
+import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js?v=20260625-draft-generator';
+import { findMainTexPath } from './compile.js?v=20260625-draft-generator';
+import { els, showToast, state } from './state.js?v=20260625-draft-generator';
+import { uiText } from './ui_language.js?v=20260625-draft-generator';
 
 export function collectChatContext() {
   saveCurrentFile();

@@ -7,6 +7,7 @@ import zipfile
 from http.server import SimpleHTTPRequestHandler
 
 from .ai_chat import call_chat_model
+from .ai_draft import call_draft_model
 from .ai_feedback import call_feedback_model
 from .ai_rewrite import call_model
 from .latex_compile import compile_project_payload
@@ -60,6 +61,9 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/feedback":
             self.feedback_project()
             return
+        if self.path == "/api/draft":
+            self.draft_project()
+            return
         if self.path == "/api/chat":
             self.chat_project()
             return
@@ -98,6 +102,34 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Custom prompt must be text up to 4,000 characters."}, 400)
                 return
             self.send_json(call_model(payload))
+        except RuntimeError as exc:
+            self.send_json({"error": str(exc)}, 502)
+        except (ValueError, json.JSONDecodeError):
+            self.send_json({"error": "Invalid JSON request."}, 400)
+
+    def draft_project(self):
+        try:
+            payload = self.read_json(2 * 1024 * 1024, "中文草稿请求不能为空或超过 2 MB。")
+            draft = payload.get("draft", "")
+            if not isinstance(draft, str) or not draft.strip():
+                self.send_json({"error": "请先输入中文草稿或写作意图。"}, 400)
+                return
+            if len(draft) > 8000:
+                self.send_json({"error": "中文草稿过长，请控制在 8,000 字符以内。"}, 400)
+                return
+            content = payload.get("content", "")
+            if not isinstance(content, str):
+                payload["content"] = ""
+            if len(payload.get("content", "")) > 250000:
+                self.send_json({"error": "当前文件过长，请先拆分文件或减少上下文后再生成。"}, 400)
+                return
+            custom_prompt = payload.get("custom_prompt", "")
+            if not isinstance(custom_prompt, str) or len(custom_prompt) > 4000:
+                self.send_json({"error": "Custom prompt must be text up to 4,000 characters."}, 400)
+                return
+            self.send_json(call_draft_model(payload))
+        except ApiError as exc:
+            self.send_json(exc.payload, exc.status)
         except RuntimeError as exc:
             self.send_json({"error": str(exc)}, 502)
         except (ValueError, json.JSONDecodeError):

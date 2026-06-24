@@ -1,6 +1,6 @@
-import { captureSelection, getContext, updateEditorMeta } from './editor.js';
-import { DEFAULT_PROMPTS, els, showToast, state } from './state.js';
-import { modeLabel, uiText } from './ui_language.js';
+import { clearLockedSelection, getContext, updateEditorMeta } from './editor.js?v=20260625-draft-generator';
+import { DEFAULT_PROMPTS, els, showToast, state } from './state.js?v=20260625-draft-generator';
+import { modeLabel, uiText } from './ui_language.js?v=20260625-draft-generator';
 
 export function showModePrompt() {
   els.writingPrompt.value = state.customPrompts[state.activeMode] || DEFAULT_PROMPTS[state.activeMode];
@@ -101,8 +101,7 @@ export function replaceSelection(value) {
   els.editor.focus();
   els.editor.setSelectionRange(state.selectedRange.start, state.selectedRange.end);
   document.execCommand('insertText', false, value);
-  state.selectedRange = null;
-  els.selectionCount.textContent = uiText('editor.notSelected');
+  clearLockedSelection();
   els.resultStatus.textContent = uiText('result.applied'); updateEditorMeta(); showToast(uiText('toast.replacedWithUndo'));
 }
 

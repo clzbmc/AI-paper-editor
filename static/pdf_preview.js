@@ -1,5 +1,5 @@
-import { base64Blob, cacheBustedUrl, els, showToast, state } from './state.js';
-import { uiText } from './ui_language.js';
+import { base64Blob, cacheBustedUrl, els, showToast, state } from './state.js?v=20260625-draft-generator';
+import { uiText } from './ui_language.js?v=20260625-draft-generator';
 
 export async function resolvePdfPreviewUrl(serverUrl, fallbackUrl) {
   if (!serverUrl) return fallbackUrl;

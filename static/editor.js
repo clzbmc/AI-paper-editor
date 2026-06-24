@@ -1,7 +1,7 @@
-import { cacheProject } from './db.js';
-import { openProjectFile as openProjectFileFromFiles, serializeProjectFiles, writeToSource } from './files.js';
-import { els, showToast, state } from './state.js';
-import { uiText } from './ui_language.js';
+import { cacheProject } from './db.js?v=20260625-draft-generator';
+import { openProjectFile as openProjectFileFromFiles, serializeProjectFiles, writeToSource } from './files.js?v=20260625-draft-generator';
+import { els, showToast, state } from './state.js?v=20260625-draft-generator';
+import { uiText } from './ui_language.js?v=20260625-draft-generator';
 
 export function refreshLineNumbers(force = false) {
   const computed = getComputedStyle(els.editor);
@@ -32,6 +32,31 @@ export function refreshLineNumbers(force = false) {
 export function scheduleLineNumbers(force = false) {
   clearTimeout(state.lineNumberTimer);
   state.lineNumberTimer = setTimeout(() => refreshLineNumbers(force), 90);
+}
+
+export function syncSelectionOverlayScroll() {
+  const content = els.selectionOverlay?.firstElementChild;
+  if (content) content.style.transform = `translate(${-els.editor.scrollLeft}px, ${-els.editor.scrollTop}px)`;
+}
+
+export function renderLockedSelection() {
+  if (!els.selectionOverlay) return;
+  els.selectionOverlay.replaceChildren();
+  if (!state.selectedRange) return;
+  if (els.editor.value.slice(state.selectedRange.start, state.selectedRange.end) !== state.selectedRange.text) {
+    clearLockedSelection();
+    return;
+  }
+  const { start, end } = state.selectedRange;
+  const content = document.createElement('div');
+  content.className = 'selection-overlay-content';
+  content.append(
+    document.createTextNode(els.editor.value.slice(0, start)),
+    Object.assign(document.createElement('mark'), { textContent: els.editor.value.slice(start, end) }),
+    document.createTextNode(els.editor.value.slice(end) || '\u200b'),
+  );
+  els.selectionOverlay.append(content);
+  syncSelectionOverlayScroll();
 }
 
 export async function autoSave(path = state.currentPath) {
@@ -118,6 +143,7 @@ export function replaceAllMatches() {
 
 export function updateEditorMeta() {
   scheduleLineNumbers();
+  renderLockedSelection();
   const beforeCursor = els.editor.value.slice(0, els.editor.selectionStart).split('\n');
   els.cursorPosition.textContent = `Ln ${beforeCursor.length}, Col ${beforeCursor.at(-1).length + 1}`;
   els.wordCount.textContent = `${(els.editor.value.match(/[\p{L}\p{N}_-]+/gu) || []).length} words`;
@@ -125,6 +151,7 @@ export function updateEditorMeta() {
 
 export function clearLockedSelection() {
   state.selectedRange = null;
+  if (els.selectionOverlay) els.selectionOverlay.replaceChildren();
   els.selectionCount.textContent = uiText('editor.notSelected');
   els.resultStatus.textContent = uiText('result.waiting');
 }
@@ -141,6 +168,7 @@ export function captureSelection() {
     end: els.editor.selectionEnd,
     text: els.editor.value.slice(els.editor.selectionStart, els.editor.selectionEnd),
   };
+  renderLockedSelection();
   els.selectionCount.textContent = uiText('editor.selectedChars', { count: state.selectedRange.text.length });
   els.resultStatus.textContent = uiText('editor.selectionReady');
 }
