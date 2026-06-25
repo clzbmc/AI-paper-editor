@@ -14,7 +14,8 @@ FEEDBACK_SYSTEM_PROMPT = """You are an academic writing feedback assistant for L
 Do not rewrite the document. Identify only the most useful non-intrusive feedback items.
 Preserve the user's control: return suggestions, not edits. Do not ask questions.
 Return JSON only with key feedback, an array of exactly 10 objects.
-Each object must have string fields type, severity, text, and suggestion.
+Each object must have string fields type, severity, text, suggestion, and anchor_text.
+anchor_text must be a short exact quote copied from the provided paper excerpt that the feedback item refers to.
 Each suggestion must be an actionable solution or recommended wording.
 All text and suggestion values must be written in Simplified Chinese.
 Use severity as low, medium, or high. Keep every field concise."""
@@ -45,13 +46,15 @@ Only return changes when the user explicitly asks to modify, rewrite, revise, ap
 Every change must target a text file and must use an exact find string from that file."""
 
 PROJECT_MEMORY_SYSTEM_PROMPT = """You are PaperCraft's project memory builder for LaTeX research papers.
-Build a conservative structured memory index from project files.
+Build a conservative structured memory index from cleaned main-paper LaTeX prose.
+Inputs are expected to come from main.tex and TeX files referenced by \\input or \\include after local removal of formatting commands, macros, tables, equations, figures, and BibTeX.
 Classify each useful file or section as one of: current, template, legacy, ambiguous, ignored.
 current means it likely belongs to the user's current paper.
 template means reusable structure, formatting, example text, placeholder text, or style scaffolding.
 legacy means likely content copied from a previous paper, including old topic, old experiments, old dataset, old claims, old title, old authors, or outdated conclusions.
 ambiguous means you are unsure whether it belongs to the current paper.
 ignored means PaperCraft metadata, generated cache, or irrelevant content.
+Never treat style packages, class files, macros, BibTeX entries, table source, figure source, or formatting scaffolding as current-paper facts.
 Never convert suspected legacy or ambiguous content into current-paper facts.
 Return JSON only with keys project_summary, keywords, and entries.
 entries must be an array of objects with string fields id, path, heading, summary, source_type, rationale; number field confidence from 0 to 1; array fields keywords, terms, citations.

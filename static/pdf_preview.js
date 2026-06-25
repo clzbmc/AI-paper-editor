@@ -1,5 +1,5 @@
-import { base64Blob, cacheBustedUrl, els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { base64Blob, cacheBustedUrl, els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 export async function resolvePdfPreviewUrl(serverUrl, fallbackUrl) {
   if (!serverUrl) return fallbackUrl;

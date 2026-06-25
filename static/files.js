@@ -1,9 +1,10 @@
-import { getCachedProject, cacheProject } from './db.js?v=20260625-memory-collapse';
-import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js?v=20260625-memory-collapse';
-import { resetPdfPreview } from './pdf_preview.js?v=20260625-memory-collapse';
-import { isMemoryPath } from './project_memory.js?v=20260625-memory-collapse';
-import { base64Blob, bufferToBase64, els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { getCachedProject, cacheProject } from './db.js?v=20260625-codemirror-editor';
+import { DEFAULT_DOCUMENT, getValue, restoreViewState, setValue } from './code_editor.js?v=20260625-codemirror-editor';
+import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js?v=20260625-codemirror-editor';
+import { resetPdfPreview } from './pdf_preview.js?v=20260625-codemirror-editor';
+import { isMemoryPath } from './project_memory.js?v=20260625-codemirror-editor';
+import { base64Blob, bufferToBase64, els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 export async function writeToSource(file) {
   if (!file || file.kind !== 'text') return false;
@@ -54,7 +55,7 @@ export function parsedProjectFile(item) {
 }
 
 export function fileKind(path) {
-  if (/\.(tex|latex|bib|sty|cls|bst|rtx|txt|text|md)$/i.test(path)) return 'text';
+  if (/\.(tex|latex|bib|sty|cls|bst|rtx|txt|text|md|json)$/i.test(path)) return 'text';
   if (/\.(pdf|png|jpe?g|gif|svg|webp)$/i.test(path)) return 'asset';
   return 'other';
 }
@@ -93,21 +94,12 @@ export function openProjectFile(path) {
   state.selectedRange = null;
   els.filePreview.replaceChildren();
   if (file.kind === 'text') {
-    els.editor.hidden = false; els.lineNumbers.hidden = false; els.filePreview.hidden = true;
-    els.editor.value = file.content;
-    const view = file.view || {};
-    const selectionStart = Math.min(view.selectionStart ?? 0, els.editor.value.length);
-    const selectionEnd = Math.min(view.selectionEnd ?? selectionStart, els.editor.value.length);
-    els.editor.focus({ preventScroll: true });
-    els.editor.setSelectionRange(selectionStart, selectionEnd);
+    els.editor.hidden = false; els.filePreview.hidden = true;
+    setValue(file.content);
+    restoreViewState(file.view || {});
     updateEditorMeta();
-    requestAnimationFrame(() => {
-      els.editor.scrollTop = view.scrollTop ?? 0;
-      els.editor.scrollLeft = view.scrollLeft ?? 0;
-      els.lineNumbers.scrollTop = els.editor.scrollTop;
-    });
   } else {
-    els.editor.hidden = true; els.lineNumbers.hidden = true; els.filePreview.hidden = false;
+    els.editor.hidden = true; els.filePreview.hidden = false;
     if (file.kind === 'asset' && /^image\//.test(file.mime)) {
       const image = document.createElement('img'); image.src = file.url; image.alt = path; els.filePreview.append(image);
     } else if (file.kind === 'asset' && file.mime === 'application/pdf') {
@@ -120,7 +112,7 @@ export function openProjectFile(path) {
   renderTree();
 }
 
-export function loadProject(files, name, preferredPath = '', persist = true) {
+export function loadProject(files, name, preferredPath = '', persist = true, directoryHandle = null) {
   saveCurrentFile();
   resetPdfPreview();
   state.projectFiles.forEach(file => { if (file.url) URL.revokeObjectURL(file.url); });
@@ -128,6 +120,7 @@ export function loadProject(files, name, preferredPath = '', persist = true) {
   files.forEach(file => { if (file.kind === 'asset' && file.blob) file.url = URL.createObjectURL(file.blob); });
   state.projectFiles = new Map(files.map(file => [file.path, file]));
   state.projectName = name || uiText('toast.paperProject');
+  state.projectDirectoryHandle = directoryHandle;
   state.chatMessages = [];
   state.pendingChatChanges = [];
   state.projectMemory = null;
@@ -261,7 +254,7 @@ export async function openProjectFolder() {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     const files = await readDirectory(handle);
-    loadProject(files, handle.name);
+    loadProject(files, handle.name, '', true, handle);
   } catch (error) {
     if (error.name !== 'AbortError') showToast(uiText('toast.projectReadFailed', { message: error.message }));
   }
@@ -371,6 +364,7 @@ export async function exportProject() {
 
 export function initDefaultProject() {
   const saved = localStorage.getItem('papercraft-document');
-  if (saved) els.editor.value = saved;
-  state.projectFiles.set(state.currentPath, { path: state.currentPath, kind: 'text', mime: 'text/x-tex', content: els.editor.value });
+  if (saved) setValue(saved);
+  else if (!getValue()) setValue(DEFAULT_DOCUMENT);
+  state.projectFiles.set(state.currentPath, { path: state.currentPath, kind: 'text', mime: 'text/x-tex', content: getValue() });
 }

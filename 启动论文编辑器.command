@@ -5,7 +5,7 @@ set -u
 SCRIPT_DIR="${0:A:h}"
 PORT="${PORT:-8000}"
 URL="http://127.0.0.1:${PORT}"
-APP_VERSION="0.7.10"
+APP_VERSION="0.8"
 
 cd "$SCRIPT_DIR" || exit 1
 clear

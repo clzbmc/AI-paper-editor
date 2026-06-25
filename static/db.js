@@ -1,4 +1,4 @@
-import { state } from './state.js?v=20260625-memory-collapse';
+import { state } from './state.js?v=20260625-codemirror-editor';
 
 export function openDatabase() {
   return new Promise((resolve, reject) => {

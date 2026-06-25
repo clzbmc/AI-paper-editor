@@ -10,6 +10,7 @@ from .utils import strip_json_fence
 
 SOURCE_TYPES = {"current", "template", "legacy", "ambiguous", "ignored"}
 MEMORY_VERSION = 1
+TEX_EXTENSIONS = (".tex", ".latex")
 
 
 def tokenize(text):
@@ -56,9 +57,82 @@ def citation_keys(text, limit=20):
     return seen[:limit]
 
 
+def strip_latex_comments(text):
+    lines = []
+    for line in str(text).splitlines():
+      escaped = False
+      cut = len(line)
+      for index, char in enumerate(line):
+          if char == "\\":
+              escaped = not escaped
+              continue
+          if char == "%" and not escaped:
+              cut = index
+              break
+          escaped = False
+      lines.append(line[:cut])
+    return "\n".join(lines)
+
+
+def remove_latex_environments(text):
+    for environment in ("equation", "align", "gather", "multline", "table", "tabular", "figure", "lstlisting", "verbatim", "tikzpicture"):
+        pattern = rf"\\begin\{{{environment}\*?\}}[\s\S]*?\\end\{{{environment}\*?\}}"
+        text = re.sub(pattern, "\n\n", text, flags=re.IGNORECASE)
+    return text
+
+
+def clean_latex_text(text):
+    text = strip_latex_comments(text)
+    text = re.sub(r"^[\s\S]*?\\begin\{document\}", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\\end\{document\}[\s\S]*$", "", text, flags=re.IGNORECASE)
+    text = remove_latex_environments(text)
+    text = re.sub(r"\$\$[\s\S]*?\$\$", " ", text)
+    text = re.sub(r"\$[^$\n]{1,240}\$", " ", text)
+    text = re.sub(r"\\\[[\s\S]*?\\\]", " ", text)
+    text = re.sub(r"\\\([\s\S]*?\\\)", " ", text)
+    text = re.sub(r"\\(?:usepackage|documentclass|newcommand|renewcommand|def|DeclareMathOperator|bibliographystyle|bibliography|setlength|vspace|hspace|noindent|maketitle|tableofcontents)\b(?:\[[^\]]*\])?(?:\{[^}]*\})*", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"\\begin\{abstract\}", "\n\nAbstract\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"\\end\{abstract\}", "\n\n", text, flags=re.IGNORECASE)
+
+    def command_replacement(match):
+        command = match.group(1)
+        argument = match.group(2)
+        if re.match(r"^(section|subsection|subsubsection|paragraph|subparagraph|title|caption)$", command):
+            return f"\n\n[PAPERCRAFT_HEADING] {argument}\n\n"
+        if re.match(r"^(emph|textit|textbf|texttt|mathrm|mathbf|underline)$", command):
+            return argument
+        if re.match(r"^(cite|citep|citet|parencite|textcite|ref|eqref|autoref|label|url|href|includegraphics)$", command):
+            return ""
+        return argument or ""
+
+    text = re.sub(r"\\([a-zA-Z@]+)\*?(?:\[[^\]]*\])?\{([^{}]*)\}", command_replacement, text)
+    text = re.sub(r"\\[a-zA-Z@]+\*?(?:\[[^\]]*\])?", " ", text)
+    text = re.sub(r"[{}]", " ", text)
+    paragraphs = [re.sub(r"\s+", " ", paragraph).strip() for paragraph in re.split(r"\n\s*\n+", text) if paragraph.strip()]
+    kept = []
+    for paragraph in paragraphs:
+        is_heading = paragraph.startswith("[PAPERCRAFT_HEADING]")
+        letters = len(re.findall(r"[A-Za-z]", paragraph))
+        commands = paragraph.count("\\")
+        sentence_marks = len(re.findall(r"[.!?。！？]", paragraph))
+        if is_heading and letters >= 3:
+            kept.append(re.sub(r"^\[PAPERCRAFT_HEADING\]\s*", "", paragraph))
+            continue
+        if len(paragraph) < 45 and not re.match(r"^(abstract|introduction|methods?|results?|discussion|conclusions?)$", paragraph, re.IGNORECASE):
+            continue
+        if letters < 25:
+            continue
+        if commands > max(2, len(paragraph) / 80):
+            continue
+        if sentence_marks < 1 and len(paragraph) < 120:
+            continue
+        kept.append(re.sub(r"^\[PAPERCRAFT_HEADING\]\s*", "", paragraph))
+    return "\n\n".join(kept)
+
+
 def section_blocks(file):
     path = str(file.get("path", ""))
-    content = str(file.get("content", ""))
+    content = clean_latex_text(str(file.get("content", "")))
     matches = list(re.finditer(r"\\(?:section|subsection|subsubsection)\*?\{([^}]*)\}", content))
     if not matches:
         return [{"path": path, "heading": path, "content": content[:12000], "start": 0}]
@@ -70,7 +144,7 @@ def section_blocks(file):
 
 
 def demo_memory(payload):
-    files = [file for file in payload.get("files", []) if file.get("kind") == "text"]
+    files = [file for file in payload.get("files", []) if file.get("kind") == "text" and str(file.get("path", "")).lower().endswith(TEX_EXTENSIONS)]
     entries = []
     project_keywords = []
     for file in files[:80]:
@@ -149,7 +223,10 @@ def build_memory_prompt(payload):
     for file in payload.get("files", []):
         if file.get("kind") != "text":
             continue
-        content = str(file.get("content", ""))
+        path = str(file.get("path", ""))
+        if not path.lower().endswith(TEX_EXTENSIONS):
+            continue
+        content = clean_latex_text(str(file.get("content", "")))
         if not content.strip():
             continue
         keep = content[:16000]
@@ -160,7 +237,7 @@ def build_memory_prompt(payload):
     return json.dumps({
         "files": files,
         "existing_manual_overrides": payload.get("manual_overrides", {}),
-        "task": "Build a project memory index. Classify each file or section as current, template, legacy, ambiguous, or ignored. Be conservative: if unsure whether content belongs to the current paper, use ambiguous.",
+        "task": "Build a project memory index from cleaned main-paper LaTeX prose. Classify each useful section as current, template, legacy, ambiguous, or ignored. Do not treat formatting packages, macros, BibTeX, tables, equations, or template scaffolding as current-paper facts.",
     }, ensure_ascii=False)
 
 

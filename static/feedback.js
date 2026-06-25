@@ -1,6 +1,24 @@
-import { saveCurrentFile } from './editor.js?v=20260625-memory-collapse';
-import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { getRangeText, getSelection, getValue, revealRange } from './code_editor.js?v=20260625-codemirror-editor';
+import { saveCurrentFile, selectionStillMatches, updateEditorMeta } from './editor.js?v=20260625-codemirror-editor';
+import { els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
+
+function jumpToFeedback(item) {
+  const start = Number(item.start);
+  const end = Number(item.end);
+  const content = getValue();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start || end > content.length) {
+    showToast(uiText('toast.feedbackLocationStale'));
+    return;
+  }
+  const anchor = item.anchor_text || '';
+  if (anchor && getRangeText(start, end) !== anchor) {
+    showToast(uiText('toast.feedbackLocationStale'));
+    return;
+  }
+  revealRange(start, end);
+  updateEditorMeta();
+}
 
 export function renderFeedback(data) {
   const items = data.feedback || [];
@@ -25,6 +43,10 @@ export function renderFeedback(data) {
     text.textContent = item.text || '';
     const actions = document.createElement('div');
     actions.className = 'feedback-actions';
+    const jump = document.createElement('button');
+    jump.type = 'button';
+    jump.className = 'feedback-jump';
+    jump.textContent = uiText('feedback.jump');
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'feedback-toggle';
@@ -35,7 +57,7 @@ export function renderFeedback(data) {
     remove.className = 'feedback-remove';
     remove.textContent = '×';
     remove.setAttribute('aria-label', uiText('feedback.delete'));
-    actions.append(toggle, remove);
+    actions.append(jump, toggle, remove);
     head.append(meta, actions);
     const solution = document.createElement('div');
     solution.className = 'feedback-solution';
@@ -52,6 +74,7 @@ export function renderFeedback(data) {
       toggle.textContent = expanded ? uiText('feedback.collapse') : uiText('feedback.expand');
       toggle.setAttribute('aria-expanded', String(expanded));
     };
+    jump.onclick = () => jumpToFeedback(item);
     remove.onclick = () => {
       article.classList.add('removing');
       article.addEventListener('transitionend', event => {
@@ -78,16 +101,18 @@ export async function analyzeFeedback() {
   els.feedbackButton.textContent = uiText('assist.analyzing');
   els.feedbackList.innerHTML = `<p>${uiText('assist.feedbackLoading')}</p>`;
   try {
-    const selection = state.selectedRange && els.editor.value.slice(state.selectedRange.start, state.selectedRange.end) === state.selectedRange.text ? state.selectedRange.text : '';
+    const content = getValue();
+    const selectionRange = getSelection();
+    const selection = selectionStillMatches() ? state.selectedRange.text : '';
     const response = await fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         path: state.currentPath,
-        content: els.editor.value,
+        content,
         selection,
-        selection_start: state.selectedRange?.start || els.editor.selectionStart || 0,
-        selection_end: state.selectedRange?.end || els.editor.selectionEnd || 0,
+        selection_start: state.selectedRange?.start ?? selectionRange.start,
+        selection_end: state.selectedRange?.end ?? selectionRange.end,
       }),
     });
     const data = await response.json();

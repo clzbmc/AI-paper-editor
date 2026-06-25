@@ -1,7 +1,8 @@
-import { scheduleAutoSave, updateEditorMeta } from './editor.js?v=20260625-memory-collapse';
-import { retrieveProjectMemory } from './project_memory.js?v=20260625-memory-collapse';
-import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { modeLabel, uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { getCursorPosition, getValue, insertText } from './code_editor.js?v=20260625-codemirror-editor';
+import { scheduleAutoSave, updateEditorMeta } from './editor.js?v=20260625-codemirror-editor';
+import { retrieveProjectMemory } from './project_memory.js?v=20260625-codemirror-editor';
+import { els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { modeLabel, uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 const DRAFT_VARIANTS = {
   A: ['draft.safe', 'draft.safeSub'],
@@ -10,8 +11,7 @@ const DRAFT_VARIANTS = {
 };
 
 function insertTextAtCursor(text) {
-  els.editor.focus({ preventScroll: true });
-  document.execCommand('insertText', false, text);
+  insertText(text);
   updateEditorMeta();
   scheduleAutoSave();
   showToast(uiText('toast.draftInserted'));
@@ -91,7 +91,7 @@ export async function generateDraft() {
     els.draftInput.focus();
     return;
   }
-  const cursorPosition = els.editor.selectionStart || 0;
+  const cursorPosition = getCursorPosition();
   els.draftGenerate.disabled = true;
   els.draftGenerate.textContent = uiText('draft.generating');
   els.draftResult.hidden = false;
@@ -105,7 +105,7 @@ export async function generateDraft() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         path: state.currentPath,
-        content: els.editor.value,
+        content: getValue(),
         cursor_position: cursorPosition,
         draft,
         mode: state.activeMode,

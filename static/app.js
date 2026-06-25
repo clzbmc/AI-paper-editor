@@ -1,23 +1,23 @@
-import { resetCurrentPrompt, rewrite, saveModePrompt, showModePrompt } from './ai_rewrite.js?v=20260625-memory-collapse';
-import { sendChatMessage } from './chat.js?v=20260625-memory-collapse';
-import { compileProject, scheduleAutoCompile, switchResultView } from './compile.js?v=20260625-memory-collapse';
-import { generateDraft } from './draft.js?v=20260625-memory-collapse';
+import { resetCurrentPrompt, rewrite, saveModePrompt, showModePrompt } from './ai_rewrite.js?v=20260625-codemirror-editor';
+import { sendChatMessage } from './chat.js?v=20260625-codemirror-editor';
+import { initCodeEditor, onEditorChange, onEditorScroll, onEditorSelectionChange, redoEdit, undoEdit } from './code_editor.js?v=20260625-codemirror-editor';
+import { compileProject, scheduleAutoCompile, switchResultView } from './compile.js?v=20260625-codemirror-editor';
+import { generateDraft } from './draft.js?v=20260625-codemirror-editor';
 import {
   captureSelection,
   clearLockedSelection,
   replaceAllMatches,
   replaceFindMatch,
-  renderLockedSelection,
   revealFindMatch,
+  clearSearchHighlights,
   scheduleAutoSave,
-  scheduleLineNumbers,
   scheduleViewSave,
   showFindBar,
-  syncSelectionOverlayScroll,
   updateEditorMeta,
   updateFindMatches,
-} from './editor.js?v=20260625-memory-collapse';
-import { analyzeFeedback } from './feedback.js?v=20260625-memory-collapse';
+  focusSourceEditor,
+} from './editor.js?v=20260625-codemirror-editor';
+import { analyzeFeedback } from './feedback.js?v=20260625-codemirror-editor';
 import {
   createProjectFromZip,
   exportProject,
@@ -26,32 +26,21 @@ import {
   openFiles,
   openProjectFolder,
   restoreProject,
-} from './files.js?v=20260625-memory-collapse';
-import { navigateLatexReference } from './latex_nav.js?v=20260625-memory-collapse';
-import { applyLayout, setupResizableLayout } from './layout.js?v=20260625-memory-collapse';
-import { downloadCurrentPdf, openCurrentPdfFullscreen } from './pdf_preview.js?v=20260625-memory-collapse';
-import { buildProjectMemory, confirmProjectMemory, markProjectMemoryStale, renderProjectMemory, toggleProjectMemory } from './project_memory.js?v=20260625-memory-collapse';
-import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { applyUiLanguage, toggleUiLanguage, uiText } from './ui_language.js?v=20260625-memory-collapse';
+} from './files.js?v=20260625-codemirror-editor';
+import { navigateLatexReference } from './latex_nav.js?v=20260625-codemirror-editor';
+import { applyLayout, setupResizableLayout } from './layout.js?v=20260625-codemirror-editor';
+import { downloadCurrentPdf, openCurrentPdfFullscreen } from './pdf_preview.js?v=20260625-codemirror-editor';
+import { buildProjectMemory, confirmProjectMemory, markProjectMemoryStale, renderProjectMemory, toggleProjectMemory } from './project_memory.js?v=20260625-codemirror-editor';
+import { els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { applyUiLanguage, toggleUiLanguage, uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 function bindEditorEvents() {
-  els.editor.addEventListener('pointerdown', () => {
-    if (!state.selectedRange) return;
-    const collapsePosition = els.editor.selectionEnd;
-    clearLockedSelection();
-    els.editor.setSelectionRange(collapsePosition, collapsePosition);
-  });
-  els.editor.addEventListener('dblclick', navigateLatexReference);
-  els.editor.addEventListener('click', event => { if (event.metaKey || event.ctrlKey) navigateLatexReference(); });
-  els.editor.addEventListener('select', captureSelection);
-  els.editor.addEventListener('click', captureSelection);
-  els.editor.addEventListener('keyup', captureSelection);
-  els.editor.addEventListener('input', () => { updateEditorMeta(); scheduleAutoSave(); scheduleAutoCompile(); markProjectMemoryStale(); });
-  els.editor.addEventListener('scroll', () => { els.lineNumbers.scrollTop = els.editor.scrollTop; syncSelectionOverlayScroll(); scheduleViewSave(); });
-  els.lineNumbers.addEventListener('wheel', event => {
-    event.preventDefault();
-    els.editor.scrollBy({ top: event.deltaY, left: event.deltaX });
-  }, { passive: false });
+  els.editor.addEventListener('pointerdown', () => { if (state.selectedRange) clearLockedSelection(); });
+  els.editor.addEventListener('dblclick', () => requestAnimationFrame(navigateLatexReference));
+  els.editor.addEventListener('click', event => { if (event.metaKey || event.ctrlKey) requestAnimationFrame(navigateLatexReference); });
+  onEditorSelectionChange(captureSelection);
+  onEditorChange(() => { updateEditorMeta(); updateFindMatches(false); scheduleAutoSave(); scheduleAutoCompile(); markProjectMemoryStale(); });
+  onEditorScroll(scheduleViewSave);
 }
 
 function bindToolbarEvents() {
@@ -69,14 +58,25 @@ function bindToolbarEvents() {
   els.pdfFullscreenButton.onclick = openCurrentPdfFullscreen;
   els.chatInput.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); sendChatMessage(); } });
   document.querySelector('#find-toggle').onclick = showFindBar;
-  document.querySelector('#find-close').onclick = () => { document.querySelector('#find-bar').hidden = true; els.editor.focus(); };
-  document.querySelector('#find-text').addEventListener('input', () => { updateFindMatches(true); revealFindMatch(0); });
+  document.querySelector('#find-close').onclick = () => {
+    document.querySelector('#find-bar').hidden = true;
+    document.querySelector('#find-text').value = '';
+    clearSearchHighlights();
+    focusSourceEditor();
+  };
+  document.querySelector('#find-text').addEventListener('input', () => updateFindMatches(true));
+  document.querySelector('#find-text').addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const step = event.shiftKey ? -1 : 1;
+    revealFindMatch(state.findHasNavigated ? state.findIndex + step : state.findIndex);
+  });
   document.querySelector('#find-next').onclick = () => revealFindMatch(state.findIndex + 1);
   document.querySelector('#find-prev').onclick = () => revealFindMatch(state.findIndex - 1);
   document.querySelector('#replace-one').onclick = replaceFindMatch;
   document.querySelector('#replace-all').onclick = replaceAllMatches;
-  document.querySelector('#undo').onclick = () => { els.editor.focus(); document.execCommand('undo'); };
-  document.querySelector('#redo').onclick = () => { els.editor.focus(); document.execCommand('redo'); };
+  document.querySelector('#undo').onclick = undoEdit;
+  document.querySelector('#redo').onclick = redoEdit;
   document.querySelector('#open-file').onclick = () => els.fileInput.click();
   document.querySelector('#create-project-from-zip').onclick = () => els.zipProjectInput.click();
   document.querySelector('#open-folder').onclick = openProjectFolder;
@@ -129,12 +129,13 @@ function bindGlobalShortcuts() {
   document.addEventListener('keydown', event => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); rewrite(); }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); showFindBar(); }
-    if (event.key === 'Escape' && !document.querySelector('#find-bar').hidden) { document.querySelector('#find-bar').hidden = true; els.editor.focus(); }
+    if (event.key === 'Escape' && !document.querySelector('#find-bar').hidden) { document.querySelector('#find-bar').hidden = true; focusSourceEditor(); }
   });
 }
 
 function init() {
   applyUiLanguage();
+  initCodeEditor();
   bindEditorEvents();
   bindToolbarEvents();
   bindFileEvents();
@@ -146,10 +147,10 @@ function init() {
   setTimeout(() => buildProjectMemory(false), 400);
   setupResizableLayout();
   showModePrompt();
-  new ResizeObserver(() => scheduleLineNumbers(true)).observe(els.editor);
+  new ResizeObserver(() => updateFindMatches(false)).observe(els.editor);
   window.addEventListener('papercraft-project-loaded', () => buildProjectMemory(false));
   window.addEventListener('papercraft-memory-saved', scheduleAutoSave);
-  window.addEventListener('resize', () => { applyLayout(); scheduleLineNumbers(true); renderLockedSelection(); });
+  window.addEventListener('resize', () => { applyLayout(); updateFindMatches(false); });
 }
 
 init();

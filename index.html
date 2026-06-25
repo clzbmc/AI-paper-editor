@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260625-memory-collapse">
+  <link rel="stylesheet" href="styles.css?v=20260625-codemirror-editor">
 </head>
 <body>
   <header class="topbar">
@@ -49,20 +49,8 @@
         </nav>
         <div class="tree-resizer" id="tree-resizer" title="拖动调整文件树宽度" data-i18n-title="editor.treeResize"></div>
         <div class="editor-shell">
-          <pre class="line-numbers" id="line-numbers" aria-hidden="true">1</pre>
-          <div class="selection-overlay" id="selection-overlay" aria-hidden="true"></div>
-          <textarea id="editor" wrap="soft" spellcheck="false" aria-label="LaTeX 编辑器" data-i18n-aria="editor.editorAria">\section{Introduction}
-
-Computational fluid dynamics (CFD) has become a very important tool for studying complex flow phenomena. However, in order to obtain reliable results, the numerical methods must be carefully validated.
-
-In this work, we show that the proposed LES framework improves predictive accuracy by 18\% while preserving computational efficiency. The governing equation is
-\begin{equation}
-    \frac{\partial \rho}{\partial t} + \nabla \cdot (\rho \mathbf{u}) = 0.
-\end{equation}
-
-These results provide a lot of useful information for future engineering applications \cite{smith2024}.</textarea>
+          <div id="editor" role="textbox" aria-label="LaTeX 编辑器" data-i18n-aria="editor.editorAria"></div>
           <div class="file-preview" id="file-preview" hidden></div>
-          <div class="line-measure" id="line-measure" aria-hidden="true"></div>
         </div>
       </div>
       <footer class="editor-footer"><span>LaTeX</span><span>UTF-8</span><span data-i18n="editor.jumpHint">⌘/Ctrl 点击跳转</span><span id="word-count">0 words</span></footer>
@@ -134,6 +122,6 @@ These results provide a lot of useful information for future engineering applica
   </main>
   <div class="toast" id="toast"></div>
   <div class="compile-panel" id="compile-panel" hidden><div class="compile-dialog"><div class="compile-head"><b data-i18n="compile.title">LaTeX 编译</b><button id="compile-close">×</button></div><div id="compile-summary"></div><div class="compile-errors" id="compile-errors"></div></div></div>
-  <script type="module" src="static/app.js?v=20260625-memory-collapse"></script>
+  <script type="module" src="static/app.js?v=20260625-codemirror-editor"></script>
 </body>
 </html>

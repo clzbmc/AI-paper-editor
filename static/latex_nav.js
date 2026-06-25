@@ -1,6 +1,7 @@
-import { captureSelection, openProjectFile } from './editor.js?v=20260625-memory-collapse';
-import { escapeRegExp, els, normalizeProjectPath, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { getCursorPosition, getValue, positionAtLine, revealRange } from './code_editor.js?v=20260625-codemirror-editor';
+import { captureSelection, openProjectFile } from './editor.js?v=20260625-codemirror-editor';
+import { escapeRegExp, normalizeProjectPath, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 export function resolveProjectFile(target, extensions = ['']) {
   const directory = state.currentPath.includes('/') ? state.currentPath.slice(0, state.currentPath.lastIndexOf('/') + 1) : '';
@@ -18,11 +19,7 @@ export function revealTextDefinition(path, pattern, message) {
   if (!match) return false;
   openProjectFile(path);
   requestAnimationFrame(() => {
-    els.editor.focus({ preventScroll: true });
-    els.editor.setSelectionRange(match.index, match.index + match[0].length);
-    const lineHeight = parseFloat(getComputedStyle(els.editor).lineHeight) || 22;
-    const line = file.content.slice(0, match.index).split('\n').length - 1;
-    els.editor.scrollTop = Math.max(0, line * lineHeight - els.editor.clientHeight / 3);
+    revealRange(match.index, match.index + match[0].length);
     captureSelection();
   });
   showToast(message);
@@ -30,10 +27,11 @@ export function revealTextDefinition(path, pattern, message) {
 }
 
 export function navigateLatexReference() {
-  const position = els.editor.selectionStart;
+  const position = getCursorPosition();
   const commandPattern = /\\(cite|citep|citet|ref|eqref|autoref|pageref|input|include|includegraphics)(?:\[[^\]]*\])*\{([^}]*)\}/g;
   let command;
-  while ((command = commandPattern.exec(els.editor.value))) {
+  const content = getValue();
+  while ((command = commandPattern.exec(content))) {
     if (position < command.index || position > command.index + command[0].length) continue;
     const type = command[1];
     const argument = command[2].trim();
@@ -71,12 +69,10 @@ export function revealSourceLine(path, line) {
   if (!file || file.kind !== 'text') { showToast(uiText('toast.sourceNotFound', { path })); return; }
   openProjectFile(resolved);
   requestAnimationFrame(() => {
-    const lines = els.editor.value.split('\n');
+    const lines = getValue().split('\n');
     const targetLine = Math.max(1, Math.min(Number(line) || 1, lines.length));
-    const start = lines.slice(0, targetLine - 1).reduce((length, value) => length + value.length + 1, 0);
-    els.editor.focus({ preventScroll: true });
-    els.editor.setSelectionRange(start, start + lines[targetLine - 1].length);
-    els.editor.scrollTop = Math.max(0, (targetLine - 1) * (parseFloat(getComputedStyle(els.editor).lineHeight) || 22) - els.editor.clientHeight / 3);
+    const start = positionAtLine(targetLine);
+    revealRange(start, start + lines[targetLine - 1].length);
     captureSelection();
   });
 }

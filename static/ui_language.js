@@ -1,4 +1,4 @@
-import { els, state } from './state.js?v=20260625-memory-collapse';
+import { els, state } from './state.js?v=20260625-codemirror-editor';
 
 export const UI_LANGUAGE_KEY = 'papercraft-ui-language';
 
@@ -109,6 +109,7 @@ export const UI_TEXT = {
     'draft.failed': '生成失败',
     'feedback.expand': '展开',
     'feedback.collapse': '收起',
+    'feedback.jump': '跳转',
     'feedback.delete': '删除这条反馈',
     'feedback.solution': '解决方案 / 推荐文字',
     'feedback.noSolution': '暂无具体解决方案。',
@@ -222,6 +223,7 @@ export const UI_TEXT = {
     'toast.feedbackFailed': '写作反馈失败',
     'toast.feedbackDemo': '已生成演示反馈',
     'toast.feedbackUpdated': '写作反馈已更新',
+    'toast.feedbackLocationStale': '原文位置已变化，请重新分析反馈',
     'toast.memoryReady': '项目记忆已生成',
     'toast.memoryDemo': '已生成演示项目记忆',
     'toast.memorySampled': '已抽样生成项目记忆，建议确认分类',
@@ -352,6 +354,7 @@ export const UI_TEXT = {
     'draft.failed': 'Generation failed',
     'feedback.expand': 'Expand',
     'feedback.collapse': 'Collapse',
+    'feedback.jump': 'Jump',
     'feedback.delete': 'Delete this feedback item',
     'feedback.solution': 'Solution / Recommended Wording',
     'feedback.noSolution': 'No specific solution yet.',
@@ -465,6 +468,7 @@ export const UI_TEXT = {
     'toast.feedbackFailed': 'Writing feedback failed',
     'toast.feedbackDemo': 'Demo feedback generated',
     'toast.feedbackUpdated': 'Writing feedback updated',
+    'toast.feedbackLocationStale': 'The source location changed. Analyze feedback again.',
     'toast.memoryReady': 'Project memory generated',
     'toast.memoryDemo': 'Demo project memory generated',
     'toast.memorySampled': 'Sampled project memory generated; review categories',

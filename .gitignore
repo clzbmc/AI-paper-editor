@@ -2,3 +2,4 @@ model_config.json
 model_config.local.json
 .DS_Store
 __pycache__/
+node_modules/

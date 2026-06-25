@@ -1,8 +1,9 @@
-import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js?v=20260625-memory-collapse';
-import { findMainTexPath } from './compile.js?v=20260625-memory-collapse';
-import { retrieveProjectMemory } from './project_memory.js?v=20260625-memory-collapse';
-import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { setValue } from './code_editor.js?v=20260625-codemirror-editor';
+import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js?v=20260625-codemirror-editor';
+import { findMainTexPath } from './compile.js?v=20260625-codemirror-editor';
+import { retrieveProjectMemory } from './project_memory.js?v=20260625-codemirror-editor';
+import { els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 export function collectChatContext() {
   saveCurrentFile();
@@ -92,7 +93,7 @@ export function applyChatChange(index) {
   if (!file || file.kind !== 'text') { showToast(uiText('toast.textFileOnly')); return; }
   if (!file.content.includes(change.find)) { showToast(uiText('toast.sourceChanged')); return; }
   file.content = file.content.replace(change.find, change.replace || '');
-  if (state.currentPath === change.path) els.editor.value = file.content;
+  if (state.currentPath === change.path) setValue(file.content);
   saveCurrentFile();
   scheduleAutoSave();
   updateEditorMeta();

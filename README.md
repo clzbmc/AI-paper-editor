@@ -1,7 +1,7 @@
 # PaperCraft AI
 
-> 版本：v0.7.10 Workbench  
-> Version: v0.7.10 Workbench
+> 版本：v0.8 CodeMirror Workbench  
+> Version: v0.8 CodeMirror Workbench
 
 本地运行的 LaTeX 论文 AI 写作工作台。选中文本后，PaperCraft 会携带选区前后各 3 个段落，生成保守修订、学术强化和精简表达三个版本，并解释修改理由；用户可以一键替换、撤销，也可以只查看建议而不改动原文。
 

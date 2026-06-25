@@ -1,11 +1,13 @@
-import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { getValue } from './code_editor.js?v=20260625-codemirror-editor';
+import { els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 export const MEMORY_PATH = '.papercraft/project_memory.json';
 const MEMORY_SOURCE_TYPES = ['current', 'template', 'legacy', 'ambiguous', 'ignored'];
 const MEMORY_VERSION = 1;
 const MEMORY_SAMPLE_LIMIT = 180000;
 const MEMORY_FILE_LIMIT = 16000;
+const MEMORY_TEX_EXTENSIONS = /\.(tex|latex)$/i;
 
 export function isMemoryPath(path) {
   return path === MEMORY_PATH || path.startsWith('.papercraft/');
@@ -24,44 +26,128 @@ function projectFingerprint(files = memorySourceFiles()) {
   return files.map(file => `${file.path}:${file.content.length}:${hashText(file.content)}`).sort().join('|');
 }
 
+function findMainMemoryPath(files) {
+  return files.find(file => /(^|\/)main\.tex$/i.test(file.path))?.path
+    || (MEMORY_TEX_EXTENSIONS.test(state.currentPath) ? state.currentPath : '')
+    || files.find(file => MEMORY_TEX_EXTENSIONS.test(file.path))?.path
+    || '';
+}
+
+function stripLatexComments(content) {
+  return String(content || '').split('\n').map(line => {
+    let escaped = false;
+    for (let index = 0; index < line.length; index++) {
+      const char = line[index];
+      if (char === '\\') {
+        escaped = !escaped;
+        continue;
+      }
+      if (char === '%' && !escaped) return line.slice(0, index);
+      escaped = false;
+    }
+    return line;
+  }).join('\n');
+}
+
+function resolveTexReference(reference, fromPath, byPath) {
+  const normalized = reference.replace(/\\/g, '/').replace(/^\.\//, '');
+  const baseDir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/')) : '';
+  const candidates = [
+    normalized,
+    `${normalized}.tex`,
+    baseDir ? `${baseDir}/${normalized}` : '',
+    baseDir ? `${baseDir}/${normalized}.tex` : '',
+  ].filter(Boolean);
+  return candidates.find(candidate => byPath.has(candidate))
+    || [...byPath.keys()].find(path => candidates.some(candidate => path.endsWith(`/${candidate}`)))
+    || '';
+}
+
+function referencedTexFiles(entryPath, byPath, visited = new Set()) {
+  if (!entryPath || visited.has(entryPath) || !byPath.has(entryPath)) return visited;
+  visited.add(entryPath);
+  const content = stripLatexComments(byPath.get(entryPath).content);
+  const pattern = /\\(?:input|include)\{([^}]*)\}/g;
+  let match;
+  while ((match = pattern.exec(content))) {
+    const found = resolveTexReference(match[1], entryPath, byPath);
+    if (found) referencedTexFiles(found, byPath, visited);
+  }
+  return visited;
+}
+
+function commandArgumentText(match, command, argument) {
+  if (/^(section|subsection|subsubsection|paragraph|subparagraph|title|caption)$/.test(command)) return `\n\n[PAPERCRAFT_HEADING] ${argument}\n\n`;
+  if (/^(emph|textit|textbf|texttt|mathrm|mathbf|underline)$/.test(command)) return argument;
+  if (/^(cite|citep|citet|parencite|textcite|ref|eqref|autoref|label|url|href|includegraphics)$/.test(command)) return '';
+  return argument || '';
+}
+
+function removeLatexEnvironments(text) {
+  const noisyEnvironments = ['equation', 'align', 'gather', 'multline', 'table', 'tabular', 'figure', 'lstlisting', 'verbatim', 'tikzpicture'];
+  return noisyEnvironments.reduce((result, environment) => {
+    const pattern = new RegExp(`\\\\begin\\{${environment}\\*?\\}[\\s\\S]*?\\\\end\\{${environment}\\*?\\}`, 'gi');
+    return result.replace(pattern, '\n\n');
+  }, text);
+}
+
+function cleanLatexForMemory(content) {
+  let text = stripLatexComments(content);
+  text = text.replace(/^[\s\S]*?\\begin\{document\}/i, '');
+  text = text.replace(/\\end\{document\}[\s\S]*$/i, '');
+  text = removeLatexEnvironments(text);
+  text = text.replace(/\$\$[\s\S]*?\$\$/g, ' ');
+  text = text.replace(/\$[^$\n]{1,240}\$/g, ' ');
+  text = text.replace(/\\\[[\s\S]*?\\\]/g, ' ');
+  text = text.replace(/\\\([\s\S]*?\\\)/g, ' ');
+  text = text.replace(/\\(?:usepackage|documentclass|newcommand|renewcommand|def|DeclareMathOperator|bibliographystyle|bibliography|setlength|vspace|hspace|noindent|maketitle|tableofcontents)\b(?:\[[^\]]*\])?(?:\{[^}]*\})*/gi, '\n');
+  text = text.replace(/\\begin\{abstract\}/gi, '\n\nAbstract\n\n').replace(/\\end\{abstract\}/gi, '\n\n');
+  text = text.replace(/\\([a-zA-Z@]+)\*?(?:\[[^\]]*\])?\{([^{}]*)\}/g, commandArgumentText);
+  text = text.replace(/\\[a-zA-Z@]+\*?(?:\[[^\]]*\])?/g, ' ');
+  text = text.replace(/[{}]/g, ' ');
+  const paragraphs = text.split(/\n\s*\n+/).map(paragraph => paragraph.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return paragraphs.filter(paragraph => {
+    const isHeading = paragraph.startsWith('[PAPERCRAFT_HEADING]');
+    const letters = (paragraph.match(/[A-Za-z]/g) || []).length;
+    const commands = (paragraph.match(/\\/g) || []).length;
+    const sentenceMarks = (paragraph.match(/[.!?。！？]/g) || []).length;
+    if (isHeading && letters >= 3) return true;
+    if (paragraph.length < 45 && !/^(abstract|introduction|methods?|results?|discussion|conclusions?)$/i.test(paragraph)) return false;
+    if (letters < 25) return false;
+    if (commands > Math.max(2, paragraph.length / 80)) return false;
+    if (sentenceMarks < 1 && paragraph.length < 120) return false;
+    return true;
+  }).map(paragraph => paragraph.replace(/^\[PAPERCRAFT_HEADING\]\s*/, '')).join('\n\n');
+}
+
 function memorySourceFiles() {
   const current = state.projectFiles.get(state.currentPath);
-  if (current?.kind === 'text') current.content = els.editor.value;
-  return [...state.projectFiles.values()]
-    .filter(file => file.kind === 'text' && !isMemoryPath(file.path) && /\.(tex|latex|bib|sty|cls|bst|rtx|txt|text|md)$/i.test(file.path))
-    .map(file => ({ path: file.path, kind: 'text', content: String(file.content || '') }))
+  if (current?.kind === 'text') current.content = getValue();
+  const texFiles = [...state.projectFiles.values()]
+    .filter(file => file.kind === 'text' && !isMemoryPath(file.path) && MEMORY_TEX_EXTENSIONS.test(file.path))
+    .map(file => ({ path: file.path, kind: 'text', content: String(file.content || '') }));
+  const byPath = new Map(texFiles.map(file => [file.path, file]));
+  const mainPath = findMainMemoryPath(texFiles);
+  const included = referencedTexFiles(mainPath, byPath);
+  return [...included].map(path => {
+    const file = byPath.get(path);
+    const cleaned = cleanLatexForMemory(file.content);
+    return {
+      path,
+      kind: 'text',
+      content: cleaned,
+      original_length: file.content.length,
+      cleaned_length: cleaned.length,
+      memory_entry: path === mainPath,
+    };
+  })
     .filter(file => file.content.trim());
 }
 
-function referencedTexFiles(files) {
-  const byPath = new Map(files.map(file => [file.path, file]));
-  const references = new Set();
-  const current = byPath.get(state.currentPath)?.content || '';
-  const main = files.find(file => /(^|\/)main\.tex$/i.test(file.path))?.content || '';
-  for (const content of [current, main]) {
-    const pattern = /\\(?:input|include)\{([^}]*)\}/g;
-    let match;
-    while ((match = pattern.exec(content))) {
-      const base = match[1].replace(/\\/g, '/').replace(/^\.\//, '');
-      const candidates = [base, `${base}.tex`];
-      for (const candidate of candidates) {
-        const found = files.find(file => file.path === candidate || file.path.endsWith(`/${candidate}`));
-        if (found) references.add(found.path);
-      }
-    }
-  }
-  return references;
-}
-
-function filePriority(file, referenced) {
-  const path = file.path.toLowerCase();
-  if (file.path === state.currentPath) return 0;
-  if (/(^|\/)main\.tex$/i.test(file.path)) return 1;
-  if (referenced.has(file.path)) return 2;
-  if (/\.bib$/i.test(path)) return 3;
-  if (/(abstract|introduction|intro|method|methods|result|results|discussion|conclusion|conclusions)/i.test(path)) return 4;
-  if (/\.(tex|latex)$/i.test(path)) return 5;
-  return 6;
+function filePriority(file) {
+  if (file.memory_entry) return 0;
+  if (/(abstract|introduction|intro|method|methods|result|results|discussion|conclusion|conclusions)/i.test(file.path)) return 1;
+  return 2;
 }
 
 function representativeSlice(content, limit = MEMORY_FILE_LIMIT) {
@@ -76,8 +162,7 @@ function representativeSlice(content, limit = MEMORY_FILE_LIMIT) {
 }
 
 function sampledMemoryFiles(files) {
-  const referenced = referencedTexFiles(files);
-  const sorted = [...files].sort((a, b) => filePriority(a, referenced) - filePriority(b, referenced) || a.path.localeCompare(b.path));
+  const sorted = [...files].sort((a, b) => filePriority(a) - filePriority(b) || a.path.localeCompare(b.path));
   const sampled = [];
   let total = 0;
   for (const file of sorted) {
@@ -90,16 +175,21 @@ function sampledMemoryFiles(files) {
       ...file,
       content,
       truncated: content.length < file.content.length,
-      original_length: file.content.length,
+      original_length: file.original_length || file.content.length,
+      cleaned_length: file.cleaned_length || file.content.length,
     });
     total += content.length;
   }
   return {
     files: sampled,
     sampled: sampled.some(file => file.truncated) || sampled.length < files.length,
-    original_file_count: files.length,
+    source_strategy: 'main_tex_clean_text',
+    excluded_file_types: ['sty', 'cls', 'bst', 'rtx', 'bib', 'txt', 'md', 'unreferenced_tex'],
+    original_file_count: [...state.projectFiles.values()].filter(file => file.kind === 'text' && !isMemoryPath(file.path)).length,
+    included_file_count: files.length,
     sampled_file_count: sampled.length,
-    original_total_length: files.reduce((sum, file) => sum + file.content.length, 0),
+    original_total_length: files.reduce((sum, file) => sum + (file.original_length || file.content.length), 0),
+    cleaned_total_length: files.reduce((sum, file) => sum + file.content.length, 0),
     sampled_total_length: total,
   };
 }
@@ -154,6 +244,12 @@ function loadMemoryFromFile() {
   }
 }
 
+async function ensureMemoryFileHandle() {
+  if (!state.projectDirectoryHandle?.getDirectoryHandle) return null;
+  const directory = await state.projectDirectoryHandle.getDirectoryHandle('.papercraft', { create: true });
+  return directory.getFileHandle('project_memory.json', { create: true });
+}
+
 async function saveMemory(memory) {
   const content = JSON.stringify(memory, null, 2);
   let file = memoryFile();
@@ -171,21 +267,31 @@ async function saveMemory(memory) {
   }
   file.content = content;
   try {
+    if (!file.handle) {
+      const handle = await ensureMemoryFileHandle();
+      if (handle) file.handle = handle;
+    }
     if (file.handle) {
       const permission = await file.handle.queryPermission({ mode: 'readwrite' });
-      if (permission === 'granted') {
+      const granted = permission === 'granted' || await file.handle.requestPermission({ mode: 'readwrite' }) === 'granted';
+      if (granted) {
         const writable = await file.handle.createWritable();
         await writable.write(file.content);
         await writable.close();
       }
     } else if (file.serverRootId && file.serverWritable) {
-      await fetch('/api/save-project-file', {
+      const response = await fetch('/api/save-project-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ root_id: file.serverRootId, path: file.path, content: file.content }),
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || uiText('toast.writebackFailed'));
+      }
     }
-  } catch {
+  } catch (error) {
+    console.warn('Project memory source writeback failed:', error);
     // IndexedDB/export still keep the sidecar even when source writeback is unavailable.
   }
   window.dispatchEvent(new CustomEvent('papercraft-memory-saved'));
@@ -326,7 +432,7 @@ export function markProjectMemoryStale() {
   if (!state.projectMemory) return;
   state.projectMemoryDirty = true;
   state.projectMemoryStatus = 'stale';
-  state.projectMemoryExpanded = true;
+  state.projectMemoryExpanded = !state.projectMemory.confirmed;
   renderProjectMemory();
 }
 

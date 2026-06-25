@@ -1,10 +1,10 @@
-import { cacheProject } from './db.js?v=20260625-memory-collapse';
-import { collectProjectFiles, renderTree, serializeProjectFiles } from './files.js?v=20260625-memory-collapse';
-import { revealSourceLine } from './latex_nav.js?v=20260625-memory-collapse';
-import { compiledPdfFile, flushPendingPdfPreview, loadPdfPreview, queuePdfPreview, resolvePdfPreviewUrl, updatePdfActions } from './pdf_preview.js?v=20260625-memory-collapse';
-import { base64Blob, els, showToast, state } from './state.js?v=20260625-memory-collapse';
-import { saveCurrentFile } from './editor.js?v=20260625-memory-collapse';
-import { uiText } from './ui_language.js?v=20260625-memory-collapse';
+import { cacheProject } from './db.js?v=20260625-codemirror-editor';
+import { collectProjectFiles, renderTree, serializeProjectFiles } from './files.js?v=20260625-codemirror-editor';
+import { revealSourceLine } from './latex_nav.js?v=20260625-codemirror-editor';
+import { compiledPdfFile, flushPendingPdfPreview, loadPdfPreview, queuePdfPreview, resolvePdfPreviewUrl, updatePdfActions } from './pdf_preview.js?v=20260625-codemirror-editor';
+import { base64Blob, els, showToast, state } from './state.js?v=20260625-codemirror-editor';
+import { saveCurrentFile } from './editor.js?v=20260625-codemirror-editor';
+import { uiText } from './ui_language.js?v=20260625-codemirror-editor';
 
 export function findMainTexPath() {
   const paths = [...state.projectFiles.keys()];

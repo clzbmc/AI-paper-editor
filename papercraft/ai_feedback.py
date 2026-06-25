@@ -83,6 +83,59 @@ def ensure_feedback_count(items):
         seen.add(fallback["text"])
     return normalized[:10]
 
+def locate_anchor(content, anchor_text="", fallback=0):
+    text = str(content or "")
+    anchor = str(anchor_text or "").strip()
+    start = -1
+    if anchor:
+        start = text.find(anchor)
+        if start < 0:
+            compact_anchor = re.sub(r"\s+", " ", anchor)
+            compact_text = re.sub(r"\s+", " ", text)
+            compact_start = compact_text.find(compact_anchor)
+            if compact_start >= 0:
+                prefix = compact_text[:compact_start]
+                nonspace_count = len(re.sub(r"\s+", "", prefix))
+                cursor = 0
+                seen = 0
+                while cursor < len(text) and seen < nonspace_count:
+                    if not text[cursor].isspace():
+                        seen += 1
+                    cursor += 1
+                start = cursor
+    if start < 0:
+        start = max(0, min(len(text), int(fallback or 0)))
+        end = min(len(text), start + 160)
+    else:
+        end = min(len(text), start + max(len(anchor), 1))
+    line = text[:start].count("\n") + 1
+    return {"anchor_text": text[start:end], "start": start, "end": end, "line": line}
+
+
+def enrich_feedback_locations(items, content, fallback=0):
+    enriched = []
+    for index, item in enumerate(ensure_feedback_count(items)):
+        anchor_text = item.get("anchor_text") or item.get("quote") or item.get("evidence") or ""
+        location = locate_anchor(content, anchor_text, fallback + index * 80)
+        enriched.append({**item, **location})
+    return enriched
+
+
+def best_demo_anchor(text, item):
+    normalized_type = item.get("type", "")
+    patterns = {
+        "clarity": r"\b(?:very important|a lot of|useful information)\b",
+        "evidence": r"[^.\n]*\\cite\{[^.\n]*|[^.\n]{80,}",
+        "latex-safety": r"\\(?:cite|ref|begin\{equation\}|begin\{align\})[^.\n]*",
+    }
+    pattern = patterns.get(normalized_type)
+    if pattern:
+        match = re.search(pattern, text, flags=re.I)
+        if match:
+            return match.group(0)[:240]
+    sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text) if len(sentence.strip()) > 50]
+    return sentences[0][:240] if sentences else text[:160]
+
 
 def demo_feedback(text):
     """Offline feedback that demonstrates the suggestion layer without changing text."""
@@ -116,7 +169,10 @@ def demo_feedback(text):
             "text": "较长论述中没有明显引用，部分背景或方法判断可能缺少支撑。",
             "suggestion": "检查是否需要为关键背景、方法或对比结论补充引用。",
         }
-    return {"feedback": ensure_feedback_count(items), "demo": True}
+    items = ensure_feedback_count(items)
+    for item in items:
+        item["anchor_text"] = best_demo_anchor(text, item)
+    return {"feedback": enrich_feedback_locations(items, text), "demo": True}
 
 
 def feedback_excerpt(content, selection_start=0, selection_end=0, limit=16000):
@@ -142,7 +198,7 @@ def build_feedback_prompt(payload):
         "file_path": payload.get("path", ""),
         "content_excerpt": excerpt,
         "selection": payload.get("selection", ""),
-        "task": "Return exactly 10 concise academic writing feedback items in Simplified Chinese. Each item must include type, severity, text, and suggestion. The suggestion should be an actionable solution or recommended wording. Do not rewrite the document automatically.",
+        "task": "Return exactly 10 concise academic writing feedback items in Simplified Chinese. Each item must include type, severity, text, suggestion, and anchor_text. anchor_text should be a short exact quote copied from the provided excerpt that the feedback refers to. The suggestion should be an actionable solution or recommended wording. Do not rewrite the document automatically.",
     }, ensure_ascii=False)
 
 
@@ -160,6 +216,7 @@ def parse_feedback_content(content):
             "severity": str(item.get("severity", "low")),
             "text": str(item.get("text", ""))[:600],
             "suggestion": str(item.get("suggestion", ""))[:800],
+            "anchor_text": str(item.get("anchor_text", ""))[:500],
         })
     if not items:
         raise ValueError("feedback is empty")
@@ -181,6 +238,8 @@ def call_feedback_model(payload):
         raise RuntimeError(f"不支持的模型接口类型：{provider['type']}")
     try:
         parsed = parse_feedback_content(adapter(provider, build_feedback_prompt(payload), settings, FEEDBACK_SYSTEM_PROMPT))
+        fallback = payload.get("selection_start", 0) or 0
+        parsed["feedback"] = enrich_feedback_locations(parsed["feedback"], content, fallback)
         return {**parsed, "demo": False, "provider": active, "model": provider["model"]}
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"写作反馈返回格式无效：{exc}") from exc
