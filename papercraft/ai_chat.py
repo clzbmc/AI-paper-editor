@@ -40,6 +40,7 @@ def build_chat_prompt(payload):
         "current_path": payload.get("current_path", ""),
         "files": payload.get("files", []),
         "resource_manifest": payload.get("resource_manifest", []),
+        "project_memory": payload.get("project_memory", []),
         "context_truncated": bool(payload.get("context_truncated")),
         "task": "Answer in Chinese. Suggest exact changes only when explicitly requested. Never apply changes directly.",
     }, ensure_ascii=False)
@@ -82,4 +83,3 @@ def call_chat_model(payload):
         return {**parsed, "demo": False, "provider": active, "model": provider["model"]}
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"项目对话返回格式无效：{exc}") from exc
-

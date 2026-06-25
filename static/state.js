@@ -1,5 +1,6 @@
 export const els = {
   editor: document.querySelector('#editor'),
+  selectionOverlay: document.querySelector('#selection-overlay'),
   lineNumbers: document.querySelector('#line-numbers'),
   selectionCount: document.querySelector('#selection-count'),
   cursorPosition: document.querySelector('#cursor-position'),
@@ -24,6 +25,20 @@ export const els = {
   modeSelect: document.querySelector('#mode-select'),
   promptModeLabel: document.querySelector('#prompt-mode-label'),
   promptCount: document.querySelector('#prompt-count'),
+  memoryCard: document.querySelector('#memory-card'),
+  memoryStatus: document.querySelector('#memory-status'),
+  memoryRefresh: document.querySelector('#memory-refresh'),
+  memoryToggle: document.querySelector('#memory-toggle'),
+  memoryActions: document.querySelector('#memory-actions'),
+  memoryConfirm: document.querySelector('#memory-confirm'),
+  memoryList: document.querySelector('#memory-list'),
+  draftInput: document.querySelector('#draft-input'),
+  draftGenerate: document.querySelector('#draft-generate'),
+  draftResult: document.querySelector('#draft-result'),
+  draftOutput: document.querySelector('#draft-output'),
+  draftReason: document.querySelector('#draft-reason'),
+  draftStatus: document.querySelector('#draft-status'),
+  draftPanel: document.querySelector('#draft-panel'),
   feedbackList: document.querySelector('#feedback-list'),
   feedbackButton: document.querySelector('#feedback-analyze'),
   chatPanel: document.querySelector('#project-chat'),
@@ -65,6 +80,10 @@ export const state = {
   chatMessages: [],
   pendingChatChanges: [],
   currentPdf: null,
+  projectMemory: null,
+  projectMemoryStatus: 'idle',
+  projectMemoryDirty: false,
+  projectMemoryExpanded: true,
 };
 
 export function clamp(value, minimum, maximum) {

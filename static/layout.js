@@ -1,5 +1,5 @@
-import { clamp, els, state } from './state.js';
-import { scheduleLineNumbers } from './editor.js';
+import { clamp, els, state } from './state.js?v=20260625-memory-collapse';
+import { renderLockedSelection, scheduleLineNumbers } from './editor.js?v=20260625-memory-collapse';
 
 export function persistLayout() {
   localStorage.setItem('papercraft-layout', JSON.stringify(state.layout));
@@ -36,6 +36,7 @@ export function makeResizable(resizer, onMove, onFinish) {
       document.body.classList.remove('resizing');
       onFinish();
       scheduleLineNumbers(true);
+      renderLockedSelection();
     };
     resizer.addEventListener('pointermove', move);
     resizer.addEventListener('pointerup', finish);

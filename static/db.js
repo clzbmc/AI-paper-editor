@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state } from './state.js?v=20260625-memory-collapse';
 
 export function openDatabase() {
   return new Promise((resolve, reject) => {

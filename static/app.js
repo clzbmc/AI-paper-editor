@@ -1,20 +1,23 @@
-import { resetCurrentPrompt, rewrite, saveModePrompt, showModePrompt } from './ai_rewrite.js';
-import { sendChatMessage } from './chat.js';
-import { compileProject, scheduleAutoCompile, switchResultView } from './compile.js';
+import { resetCurrentPrompt, rewrite, saveModePrompt, showModePrompt } from './ai_rewrite.js?v=20260625-memory-collapse';
+import { sendChatMessage } from './chat.js?v=20260625-memory-collapse';
+import { compileProject, scheduleAutoCompile, switchResultView } from './compile.js?v=20260625-memory-collapse';
+import { generateDraft } from './draft.js?v=20260625-memory-collapse';
 import {
   captureSelection,
   clearLockedSelection,
   replaceAllMatches,
   replaceFindMatch,
+  renderLockedSelection,
   revealFindMatch,
   scheduleAutoSave,
   scheduleLineNumbers,
   scheduleViewSave,
   showFindBar,
+  syncSelectionOverlayScroll,
   updateEditorMeta,
   updateFindMatches,
-} from './editor.js';
-import { analyzeFeedback } from './feedback.js';
+} from './editor.js?v=20260625-memory-collapse';
+import { analyzeFeedback } from './feedback.js?v=20260625-memory-collapse';
 import {
   createProjectFromZip,
   exportProject,
@@ -23,12 +26,13 @@ import {
   openFiles,
   openProjectFolder,
   restoreProject,
-} from './files.js';
-import { navigateLatexReference } from './latex_nav.js';
-import { applyLayout, setupResizableLayout } from './layout.js';
-import { downloadCurrentPdf, openCurrentPdfFullscreen } from './pdf_preview.js';
-import { els, showToast, state } from './state.js';
-import { applyUiLanguage, toggleUiLanguage, uiText } from './ui_language.js';
+} from './files.js?v=20260625-memory-collapse';
+import { navigateLatexReference } from './latex_nav.js?v=20260625-memory-collapse';
+import { applyLayout, setupResizableLayout } from './layout.js?v=20260625-memory-collapse';
+import { downloadCurrentPdf, openCurrentPdfFullscreen } from './pdf_preview.js?v=20260625-memory-collapse';
+import { buildProjectMemory, confirmProjectMemory, markProjectMemoryStale, renderProjectMemory, toggleProjectMemory } from './project_memory.js?v=20260625-memory-collapse';
+import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { applyUiLanguage, toggleUiLanguage, uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 function bindEditorEvents() {
   els.editor.addEventListener('pointerdown', () => {
@@ -42,8 +46,8 @@ function bindEditorEvents() {
   els.editor.addEventListener('select', captureSelection);
   els.editor.addEventListener('click', captureSelection);
   els.editor.addEventListener('keyup', captureSelection);
-  els.editor.addEventListener('input', () => { updateEditorMeta(); scheduleAutoSave(); scheduleAutoCompile(); });
-  els.editor.addEventListener('scroll', () => { els.lineNumbers.scrollTop = els.editor.scrollTop; scheduleViewSave(); });
+  els.editor.addEventListener('input', () => { updateEditorMeta(); scheduleAutoSave(); scheduleAutoCompile(); markProjectMemoryStale(); });
+  els.editor.addEventListener('scroll', () => { els.lineNumbers.scrollTop = els.editor.scrollTop; syncSelectionOverlayScroll(); scheduleViewSave(); });
   els.lineNumbers.addEventListener('wheel', event => {
     event.preventDefault();
     els.editor.scrollBy({ top: event.deltaY, left: event.deltaX });
@@ -56,6 +60,11 @@ function bindToolbarEvents() {
   document.querySelector('#reset-prompt').onclick = resetCurrentPrompt;
   els.feedbackButton.onclick = analyzeFeedback;
   els.chatSend.onclick = sendChatMessage;
+  els.draftGenerate.onclick = generateDraft;
+  els.memoryRefresh.onclick = () => buildProjectMemory(true);
+  els.memoryConfirm.onclick = confirmProjectMemory;
+  els.memoryToggle.onclick = toggleProjectMemory;
+  els.draftInput.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); generateDraft(); } });
   els.pdfDownloadButton.onclick = downloadCurrentPdf;
   els.pdfFullscreenButton.onclick = openCurrentPdfFullscreen;
   els.chatInput.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); sendChatMessage(); } });
@@ -66,10 +75,6 @@ function bindToolbarEvents() {
   document.querySelector('#find-prev').onclick = () => revealFindMatch(state.findIndex - 1);
   document.querySelector('#replace-one').onclick = replaceFindMatch;
   document.querySelector('#replace-all').onclick = replaceAllMatches;
-  document.addEventListener('pointerdown', event => {
-    if (!state.selectedRange || event.target === els.editor) return;
-    if (event.target.closest('button')) event.preventDefault();
-  });
   document.querySelector('#undo').onclick = () => { els.editor.focus(); document.execCommand('undo'); };
   document.querySelector('#redo').onclick = () => { els.editor.focus(); document.execCommand('redo'); };
   document.querySelector('#open-file').onclick = () => els.fileInput.click();
@@ -79,6 +84,7 @@ function bindToolbarEvents() {
   els.languageToggle.onclick = () => {
     toggleUiLanguage();
     showModePrompt();
+    renderProjectMemory();
     if (!state.selectedRange) {
       els.selectionCount.textContent = state.projectFiles.get(state.currentPath)?.kind === 'text' ? uiText('editor.notSelected') : uiText('editor.resourcePreview');
       els.resultStatus.textContent = uiText('result.waiting');
@@ -136,10 +142,14 @@ function init() {
   initDefaultProject();
   updateEditorMeta();
   restoreProject();
+  renderProjectMemory();
+  setTimeout(() => buildProjectMemory(false), 400);
   setupResizableLayout();
   showModePrompt();
   new ResizeObserver(() => scheduleLineNumbers(true)).observe(els.editor);
-  window.addEventListener('resize', () => { applyLayout(); scheduleLineNumbers(true); });
+  window.addEventListener('papercraft-project-loaded', () => buildProjectMemory(false));
+  window.addEventListener('papercraft-memory-saved', scheduleAutoSave);
+  window.addEventListener('resize', () => { applyLayout(); scheduleLineNumbers(true); renderLockedSelection(); });
 }
 
 init();

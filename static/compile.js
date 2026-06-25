@@ -1,10 +1,10 @@
-import { cacheProject } from './db.js';
-import { collectProjectFiles, renderTree, serializeProjectFiles } from './files.js';
-import { revealSourceLine } from './latex_nav.js';
-import { compiledPdfFile, flushPendingPdfPreview, loadPdfPreview, queuePdfPreview, resolvePdfPreviewUrl, updatePdfActions } from './pdf_preview.js';
-import { base64Blob, els, showToast, state } from './state.js';
-import { saveCurrentFile } from './editor.js';
-import { uiText } from './ui_language.js';
+import { cacheProject } from './db.js?v=20260625-memory-collapse';
+import { collectProjectFiles, renderTree, serializeProjectFiles } from './files.js?v=20260625-memory-collapse';
+import { revealSourceLine } from './latex_nav.js?v=20260625-memory-collapse';
+import { compiledPdfFile, flushPendingPdfPreview, loadPdfPreview, queuePdfPreview, resolvePdfPreviewUrl, updatePdfActions } from './pdf_preview.js?v=20260625-memory-collapse';
+import { base64Blob, els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { saveCurrentFile } from './editor.js?v=20260625-memory-collapse';
+import { uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export function findMainTexPath() {
   const paths = [...state.projectFiles.keys()];
@@ -36,6 +36,7 @@ export function switchResultView(view) {
   document.querySelectorAll('[data-result-view]').forEach(button => button.classList.toggle('active', button.dataset.resultView === view));
   els.results.hidden = view !== 'ai';
   document.querySelector('#pdf-live-preview').hidden = view !== 'pdf';
+  els.draftPanel.hidden = view !== 'draft';
   els.chatPanel.hidden = view !== 'chat';
   if (view === 'pdf') requestAnimationFrame(flushPendingPdfPreview);
 }

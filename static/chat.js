@@ -1,7 +1,8 @@
-import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js';
-import { findMainTexPath } from './compile.js';
-import { els, showToast, state } from './state.js';
-import { uiText } from './ui_language.js';
+import { saveCurrentFile, scheduleAutoSave, updateEditorMeta } from './editor.js?v=20260625-memory-collapse';
+import { findMainTexPath } from './compile.js?v=20260625-memory-collapse';
+import { retrieveProjectMemory } from './project_memory.js?v=20260625-memory-collapse';
+import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export function collectChatContext() {
   saveCurrentFile();
@@ -108,10 +109,11 @@ export async function sendChatMessage() {
   els.chatSend.textContent = uiText('chat.sending');
   try {
     const context = collectChatContext();
+    const projectMemory = await retrieveProjectMemory(content, 'chat', 10);
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: state.chatMessages, current_path: state.currentPath, ...context }),
+      body: JSON.stringify({ messages: state.chatMessages, current_path: state.currentPath, project_memory: projectMemory, ...context }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || uiText('toast.chatFailed'));

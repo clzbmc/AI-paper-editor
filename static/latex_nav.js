@@ -1,6 +1,6 @@
-import { captureSelection, openProjectFile } from './editor.js';
-import { escapeRegExp, els, normalizeProjectPath, showToast, state } from './state.js';
-import { uiText } from './ui_language.js';
+import { captureSelection, openProjectFile } from './editor.js?v=20260625-memory-collapse';
+import { escapeRegExp, els, normalizeProjectPath, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export function resolveProjectFile(target, extensions = ['']) {
   const directory = state.currentPath.includes('/') ? state.currentPath.slice(0, state.currentPath.lastIndexOf('/') + 1) : '';
