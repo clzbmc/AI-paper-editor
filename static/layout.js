@@ -1,5 +1,5 @@
-import { clamp, els, state } from './state.js?v=20260625-draft-generator';
-import { renderLockedSelection, scheduleLineNumbers } from './editor.js?v=20260625-draft-generator';
+import { clamp, els, state } from './state.js?v=20260625-memory-collapse';
+import { renderLockedSelection, scheduleLineNumbers } from './editor.js?v=20260625-memory-collapse';
 
 export function persistLayout() {
   localStorage.setItem('papercraft-layout', JSON.stringify(state.layout));

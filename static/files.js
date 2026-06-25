@@ -1,8 +1,9 @@
-import { getCachedProject, cacheProject } from './db.js?v=20260625-draft-generator';
-import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js?v=20260625-draft-generator';
-import { resetPdfPreview } from './pdf_preview.js?v=20260625-draft-generator';
-import { base64Blob, bufferToBase64, els, showToast, state } from './state.js?v=20260625-draft-generator';
-import { uiText } from './ui_language.js?v=20260625-draft-generator';
+import { getCachedProject, cacheProject } from './db.js?v=20260625-memory-collapse';
+import { saveCurrentFile, updateEditorMeta, captureSelection, autoSave } from './editor.js?v=20260625-memory-collapse';
+import { resetPdfPreview } from './pdf_preview.js?v=20260625-memory-collapse';
+import { isMemoryPath } from './project_memory.js?v=20260625-memory-collapse';
+import { base64Blob, bufferToBase64, els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export async function writeToSource(file) {
   if (!file || file.kind !== 'text') return false;
@@ -68,7 +69,7 @@ export function fileIcon(path) {
 
 export function renderTree() {
   els.treeFiles.innerHTML = '';
-  [...state.projectFiles.keys()].sort((a, b) => a.localeCompare(b)).forEach(path => {
+  [...state.projectFiles.keys()].filter(path => !isMemoryPath(path)).sort((a, b) => a.localeCompare(b)).forEach(path => {
     const button = document.createElement('button');
     button.className = `tree-file${path === state.currentPath ? ' active' : ''}`;
     button.dataset.path = path;
@@ -129,6 +130,10 @@ export function loadProject(files, name, preferredPath = '', persist = true) {
   state.projectName = name || uiText('toast.paperProject');
   state.chatMessages = [];
   state.pendingChatChanges = [];
+  state.projectMemory = null;
+  state.projectMemoryStatus = 'idle';
+  state.projectMemoryDirty = false;
+  state.projectMemoryExpanded = true;
   els.chatMessagesEl.innerHTML = `<div class="chat-empty" data-i18n="chat.empty">${uiText('chat.empty')}</div>`;
   els.chatChangesEl.hidden = true;
   els.chatChangesEl.replaceChildren();
@@ -143,6 +148,7 @@ export function loadProject(files, name, preferredPath = '', persist = true) {
     cacheProject(serializeProjectFiles).catch(error => showToast(uiText('toast.projectCacheFailed', { message: error.message })));
     showToast(uiText('toast.loadedFiles', { count: files.length }));
   }
+  window.dispatchEvent(new CustomEvent('papercraft-project-loaded'));
 }
 
 export async function openFiles(fileList) {

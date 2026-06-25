@@ -1,6 +1,7 @@
-import { clearLockedSelection, getContext, updateEditorMeta } from './editor.js?v=20260625-draft-generator';
-import { DEFAULT_PROMPTS, els, showToast, state } from './state.js?v=20260625-draft-generator';
-import { modeLabel, uiText } from './ui_language.js?v=20260625-draft-generator';
+import { clearLockedSelection, getContext, updateEditorMeta } from './editor.js?v=20260625-memory-collapse';
+import { retrieveProjectMemory } from './project_memory.js?v=20260625-memory-collapse';
+import { DEFAULT_PROMPTS, els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { modeLabel, uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export function showModePrompt() {
   els.writingPrompt.value = state.customPrompts[state.activeMode] || DEFAULT_PROMPTS[state.activeMode];
@@ -115,7 +116,8 @@ export async function rewrite() {
   const originalText = state.selectedRange.text;
   els.rewriteButton.disabled = true; els.rewriteButton.textContent = uiText('assist.rewriting'); els.resultStatus.textContent = uiText('result.thinking');
   try {
-    const response = await fetch('/api/rewrite', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ text:state.selectedRange.text, context_before:context.before, context_after:context.after, mode:state.activeMode, custom_prompt:els.writingPrompt.value }) });
+    const projectMemory = await retrieveProjectMemory(`${context.before}\n${state.selectedRange.text}\n${context.after}`, 'rewrite', 6);
+    const response = await fetch('/api/rewrite', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ text:state.selectedRange.text, context_before:context.before, context_after:context.after, mode:state.activeMode, custom_prompt:els.writingPrompt.value, project_memory: projectMemory }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || uiText('toast.rewriteFailed'));
     renderSuggestions(data, originalText); els.resultStatus.textContent = data.demo ? uiText('result.demo') : uiText('result.done');

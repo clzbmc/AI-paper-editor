@@ -12,6 +12,7 @@ from .ai_feedback import call_feedback_model
 from .ai_rewrite import call_model
 from .latex_compile import compile_project_payload
 from .pdf_store import get_pdf, pdf_range_response, pdf_token_from_path
+from .project_memory import call_project_memory_build, retrieve_project_memory
 from .project_io import (
     create_project_from_zip,
     export_project_zip,
@@ -66,6 +67,12 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/chat":
             self.chat_project()
+            return
+        if self.path == "/api/project-memory/build":
+            self.build_project_memory()
+            return
+        if self.path == "/api/project-memory/retrieve":
+            self.retrieve_project_memory()
             return
         if self.path != "/api/rewrite":
             self.send_error(404)
@@ -161,6 +168,38 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"error": str(exc)}, 502)
         except (ValueError, json.JSONDecodeError):
             self.send_json({"error": "Invalid JSON request."}, 400)
+
+    def build_project_memory(self):
+        try:
+            payload = self.read_json(3 * 1024 * 1024, "项目记忆请求不能为空或超过 3 MB。")
+            files = payload.get("files", [])
+            if not isinstance(files, list) or len(files) > 300:
+                self.send_json({"error": "项目记忆文件数量无效。"}, 400)
+                return
+            for file in files:
+                if not isinstance(file, dict):
+                    self.send_json({"error": "项目记忆文件格式无效。"}, 400)
+                    return
+                content = str(file.get("content", ""))
+                if len(content) > 50000:
+                    self.send_json({"error": "单个项目记忆样本过长，请刷新页面后重试。"}, 400)
+                    return
+            self.send_json(call_project_memory_build(payload))
+        except ApiError as exc:
+            self.send_json(exc.payload, exc.status)
+        except RuntimeError as exc:
+            self.send_json({"error": str(exc)}, 502)
+        except (ValueError, json.JSONDecodeError):
+            self.send_json({"error": "Invalid JSON request."}, 400)
+
+    def retrieve_project_memory(self):
+        try:
+            payload = self.read_json(2 * 1024 * 1024, "项目记忆检索请求不能为空或超过 2 MB。")
+            self.send_json(retrieve_project_memory(payload))
+        except ApiError as exc:
+            self.send_json(exc.payload, exc.status)
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            self.send_json({"error": f"项目记忆检索失败：{exc}"}, 400)
 
     def feedback_project(self):
         try:

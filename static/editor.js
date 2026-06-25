@@ -1,7 +1,7 @@
-import { cacheProject } from './db.js?v=20260625-draft-generator';
-import { openProjectFile as openProjectFileFromFiles, serializeProjectFiles, writeToSource } from './files.js?v=20260625-draft-generator';
-import { els, showToast, state } from './state.js?v=20260625-draft-generator';
-import { uiText } from './ui_language.js?v=20260625-draft-generator';
+import { cacheProject } from './db.js?v=20260625-memory-collapse';
+import { openProjectFile as openProjectFileFromFiles, serializeProjectFiles, writeToSource } from './files.js?v=20260625-memory-collapse';
+import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export function refreshLineNumbers(force = false) {
   const computed = getComputedStyle(els.editor);

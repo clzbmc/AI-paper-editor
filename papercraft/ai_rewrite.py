@@ -37,6 +37,7 @@ def build_user_prompt(payload):
         "context_after": payload.get("context_after", ""),
         "requested_mode": payload.get("mode", "all"),
         "custom_instruction": payload.get("custom_prompt", ""),
+        "project_memory": payload.get("project_memory", []),
     }, ensure_ascii=False)
 
 
@@ -69,4 +70,3 @@ def call_model(payload):
         return {**parsed, "demo": False, "provider": active, "model": provider["model"]}
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"模型返回格式无效：{exc}") from exc
-

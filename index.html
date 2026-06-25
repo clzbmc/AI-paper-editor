@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260625-draft-generator">
+  <link rel="stylesheet" href="styles.css?v=20260625-memory-collapse">
 </head>
 <body>
   <header class="topbar">
@@ -90,15 +90,10 @@ These results provide a lot of useful information for future engineering applica
           <textarea id="writing-prompt" rows="5" maxlength="4000" aria-label="写作提示词" data-i18n-aria="assist.promptAria"></textarea>
           <div class="prompt-meta"><span><span data-i18n="assist.currentGoal">当前目标：</span><b id="prompt-mode-label">全部版本</b></span><span id="prompt-count">0 / 4000</span></div>
         </div>
-        <div class="draft-card">
-          <div class="draft-heading"><div><b data-i18n="draft.title">中文草稿生成英文</b><small data-i18n="draft.subtitle">结合论文上下文与当前写作目标</small></div><button id="draft-generate" type="button" data-i18n="draft.generate">生成英文</button></div>
-          <textarea id="draft-input" rows="4" maxlength="8000" placeholder="输入中文写作意图或草稿" aria-label="中文草稿" data-i18n-placeholder="draft.placeholder" data-i18n-aria="draft.inputAria"></textarea>
-          <div class="draft-result" id="draft-result" hidden>
-            <div class="draft-result-head"><b data-i18n="draft.resultTitle">生成结果</b><span id="draft-status"></span></div>
-            <pre id="draft-output"></pre>
-            <p id="draft-reason"></p>
-            <div class="draft-actions"><button id="draft-copy" type="button" data-i18n="draft.copy">复制</button><button id="draft-insert" type="button" data-i18n="draft.insert">插入光标处</button></div>
-          </div>
+        <div class="memory-card" id="memory-card">
+          <div class="memory-heading"><div><b data-i18n="memory.title">项目记忆</b><small id="memory-status" data-i18n="memory.idle">等待项目加载</small></div><div class="memory-heading-actions"><button id="memory-toggle" type="button" data-i18n="memory.collapse">收起</button><button id="memory-refresh" type="button" data-i18n="memory.refresh">刷新记忆</button></div></div>
+          <div class="memory-actions" id="memory-actions"><button id="memory-confirm" type="button" data-i18n="memory.confirm">确认当前分类</button></div>
+          <div class="memory-list" id="memory-list"><p data-i18n="memory.empty">项目记忆会在打开项目后自动生成。</p></div>
         </div>
         <div class="feedback-card">
           <div class="feedback-heading"><div><b data-i18n="assist.feedbackTitle">写作反馈</b><small data-i18n="assist.feedbackSubtitle">只提示问题，不自动改文</small></div><button id="feedback-analyze" type="button" data-i18n="assist.analyzeFile">分析当前文件</button></div>
@@ -111,13 +106,24 @@ These results provide a lot of useful information for future engineering applica
 
     <section class="result-pane" id="result-pane">
       <div class="pane-heading">
-        <div><span class="eyebrow" data-i18n="result.eyebrow">SUGGESTIONS</span><h2 data-i18n="result.title">润色结果</h2></div>
-        <div class="result-heading-actions"><div class="result-tabs"><button class="active" data-result-view="ai">AI</button><button data-result-view="pdf">PDF</button><button data-result-view="chat" data-i18n="result.chatTab">对话</button></div><span class="result-status" id="result-status" data-i18n="result.waiting">等待选区</span></div>
+        <div><span class="eyebrow" data-i18n="result.eyebrow">SUGGESTIONS</span><h2 data-i18n="result.title">AI 工作区</h2></div>
+        <div class="result-heading-actions"><div class="result-tabs"><button class="active" data-result-view="ai">AI</button><button data-result-view="pdf">PDF</button><button data-result-view="draft" data-i18n="result.draftTab">中文生成</button><button data-result-view="chat" data-i18n="result.chatTab">对话</button></div><span class="result-status" id="result-status" data-i18n="result.waiting">等待选区</span></div>
       </div>
       <div class="results" id="results">
         <div class="empty-state"><div class="empty-glyph">Aa<span>✦</span></div><h3 data-i18n="empty.title">让论文表达更准确</h3><p data-i18n="empty.body">选中左侧的一段 LaTeX 文本，AI 将提供三个可直接替换的学术润色版本。</p><div class="steps"><span><b>1</b><span data-i18n="empty.step1">选中文本</span></span><i></i><span><b>2</b><span data-i18n="empty.step2">AI 润色</span></span><i></i><span><b>3</b><span data-i18n="empty.step3">一键替换</span></span></div></div>
       </div>
       <div class="pdf-live-preview" id="pdf-live-preview" hidden><div class="pdf-toolbar"><button id="pdf-download" type="button" disabled data-i18n="pdf.download">下载 PDF</button><button id="pdf-fullscreen" type="button" disabled data-i18n="pdf.fullscreen">全屏浏览</button></div><iframe id="compiled-pdf" title="编译后的 PDF" data-i18n-title="pdf.iframeTitle" hidden></iframe><div class="pdf-placeholder" id="pdf-placeholder" data-i18n="pdf.placeholder">尚未生成 PDF。请先安装本地 LaTeX 工具链，再点击“编译 PDF”。</div></div>
+      <div class="draft-panel" id="draft-panel" hidden>
+        <div class="draft-card">
+          <div class="draft-heading"><div><b data-i18n="draft.title">中文草稿生成英文</b><small data-i18n="draft.subtitle">结合论文上下文与当前写作目标</small></div><button id="draft-generate" type="button" data-i18n="draft.generate">生成英文</button></div>
+          <textarea id="draft-input" rows="6" maxlength="8000" placeholder="输入中文写作意图或草稿" aria-label="中文草稿" data-i18n-placeholder="draft.placeholder" data-i18n-aria="draft.inputAria"></textarea>
+          <div class="draft-result" id="draft-result" hidden>
+            <div class="draft-result-head"><b data-i18n="draft.resultTitle">生成结果</b><span id="draft-status"></span></div>
+            <div class="draft-output-list" id="draft-output"></div>
+            <p id="draft-reason" hidden></p>
+          </div>
+        </div>
+      </div>
       <div class="project-chat" id="project-chat" hidden>
         <div class="chat-context" id="chat-context" data-i18n="chat.contextPending">项目上下文待收集</div>
         <div class="chat-messages" id="chat-messages"><div class="chat-empty" data-i18n="chat.empty">在这里询问整篇论文、要求生成修改计划，或让 AI 给出需确认后应用的跨文件建议。</div></div>
@@ -128,6 +134,6 @@ These results provide a lot of useful information for future engineering applica
   </main>
   <div class="toast" id="toast"></div>
   <div class="compile-panel" id="compile-panel" hidden><div class="compile-dialog"><div class="compile-head"><b data-i18n="compile.title">LaTeX 编译</b><button id="compile-close">×</button></div><div id="compile-summary"></div><div class="compile-errors" id="compile-errors"></div></div></div>
-  <script type="module" src="static/app.js?v=20260625-draft-generator"></script>
+  <script type="module" src="static/app.js?v=20260625-memory-collapse"></script>
 </body>
 </html>

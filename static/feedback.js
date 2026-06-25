@@ -1,6 +1,6 @@
-import { saveCurrentFile } from './editor.js?v=20260625-draft-generator';
-import { els, showToast, state } from './state.js?v=20260625-draft-generator';
-import { uiText } from './ui_language.js?v=20260625-draft-generator';
+import { saveCurrentFile } from './editor.js?v=20260625-memory-collapse';
+import { els, showToast, state } from './state.js?v=20260625-memory-collapse';
+import { uiText } from './ui_language.js?v=20260625-memory-collapse';
 
 export function renderFeedback(data) {
   const items = data.feedback || [];
